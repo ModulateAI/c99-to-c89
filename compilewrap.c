@@ -200,8 +200,8 @@ int main(int argc, char *argv[])
     int input_source = 0, input_obj = 0;
     int msvc = 0, keep = 0, noconv = 0, flag_compile = 0;
     char *ptr;
-    char temp_file_1[200], temp_file_2[200], fo_buffer[200],
-         fi_buffer[200];
+    char temp_file_1[2048], temp_file_2[2048], fo_buffer[2048],
+         fi_buffer[2048];
     char **cpp_argv, **cc_argv, **pass_argv;
     char *conv_argv[5], *conv_tool;
     const char *source_file = NULL;
