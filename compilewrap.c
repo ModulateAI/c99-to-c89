@@ -167,6 +167,31 @@ static int exec_argv_out(char **argv, const char *out)
 }
 #endif
 
+
+/* Permits flags beginning with either - or / */
+int flagstrcmp ( const char * str1, const char * str2 )
+{
+    int realres = strcmp(str1, str2);
+    if (!realres)
+        return 0;
+    if ((str1[0] == '-' && str2[0] == '/') || (str1[0] == '/' && str2[0] == '-'))
+        return strcmp(str1+1, str2+1);
+    return realres;
+}
+
+
+/* Permits flags beginning with either - or / */
+int flagstrncmp ( const char * str1, const char * str2, size_t num )
+{
+    int realres = strncmp(str1, str2, num);
+    if (!realres)
+        return 0;
+    if ((str2[0] == '-' && str1[0] == '/') || (str2[0] == '/' && str1[0] == '-'))
+        return strncmp(str1+1, str2+1, num-1);
+    return realres;
+}
+
+
 int main(int argc, char *argv[])
 {
     int i = 1;
@@ -242,16 +267,16 @@ int main(int argc, char *argv[])
                 input_obj     = 1;
             }
         }
-        if (!strncmp(argv[i], "-Fo", 3) || !strncmp(argv[i], "-Fi", 3) || !strncmp(argv[i], "-Fe", 3) ||
-            !strcmp(argv[i], "-out") || !strcmp(argv[i], "-o") || !strcmp(argv[i], "-FI")) {
+        if (!flagstrncmp(argv[i], "-Fo", 3) || !flagstrncmp(argv[i], "-Fi", 3) || !flagstrncmp(argv[i], "-Fe", 3) ||
+            !flagstrcmp(argv[i], "-out") || !flagstrcmp(argv[i], "-o") || !flagstrcmp(argv[i], "-FI")) {
 
             // Copy the output filename only to cc
-            if ((!strcmp(argv[i], "-Fo") || !strcmp(argv[i], "-out") || !strcmp(argv[i], "-Fi") ||
-                !strcmp(argv[i], "-Fe")) && i + 1 < argc) {
+            if ((!flagstrcmp(argv[i], "-Fo") || !flagstrcmp(argv[i], "-out") || !flagstrcmp(argv[i], "-Fi") ||
+                !flagstrcmp(argv[i], "-Fe")) && i + 1 < argc) {
 
                 /* Support the nonstandard syntax -Fo filename or -out filename, to get around
                  * msys file name mangling issues. */
-                if (!strcmp(argv[i], "-out"))
+                if (!flagstrcmp(argv[i], "-out"))
                     sprintf(fo_buffer, "-out:%s", argv[i + 1]);
                 else
                     sprintf(fo_buffer, "%s%s", argv[i], argv[i + 1]);
@@ -262,7 +287,7 @@ int main(int argc, char *argv[])
                 pass_argv[pass_argc++] = fo_buffer;
 
                 i += 2;
-            } else if (!strcmp(argv[i], "-FI") && i + 1 < argc) {
+            } else if (!flagstrcmp(argv[i], "-FI") && i + 1 < argc) {
                 /* Support the nonstandard syntax -FI filename, to get around
                  * msys file name mangling issues. */
                 sprintf(fi_buffer, "%s%s", argv[i], argv[i + 1]);
@@ -271,7 +296,7 @@ int main(int argc, char *argv[])
                 pass_argv[pass_argc++] = fi_buffer;
 
                 i += 2;
-            } else if (!strncmp(argv[i], "-Fo", 3) || !strncmp(argv[i], "-Fi", 3) || !strncmp(argv[i], "-Fe", 3)) {
+            } else if (!flagstrncmp(argv[i], "-Fo", 3) || !flagstrncmp(argv[i], "-Fi", 3) || !flagstrncmp(argv[i], "-Fe", 3)) {
                 cc_argv[cc_argc++]     = argv[i];
                 pass_argv[pass_argc++] = argv[i];
 
@@ -297,7 +322,7 @@ int main(int argc, char *argv[])
             sprintf(temp_file_1, "%s_preprocessed.c", outname);
             sprintf(temp_file_2, "%s_converted.c", outname);
 
-        } else if (!strcmp(argv[i], "-c")) {
+        } else if (!flagstrcmp(argv[i], "-c")) {
             // Copy the compile flag only to cc, set the preprocess flag for cpp
             pass_argv[pass_argc++] = argv[i];
             cc_argv[cc_argc++]     = argv[i++];
@@ -311,16 +336,16 @@ int main(int argc, char *argv[])
             pass_argv[pass_argc++] = argv[i];
             cpp_argv[cpp_argc++]   = argv[i++];
             cc_argv[cc_argc++]     = temp_file_2;
-        } else if (!strcmp(argv[i], "-MMD") || !strncmp(argv[i], "-D", 2)) {
+        } else if (!flagstrcmp(argv[i], "-MMD") || !flagstrncmp(argv[i], "-D", 2)) {
             // Preprocessor-only parameter
-            if (!strcmp(argv[i], "-D")) {
+            if (!flagstrcmp(argv[i], "-D")) {
                 // Handle -D DEFINE style
                 pass_argv[pass_argc++] = argv[i];
                 cpp_argv[cpp_argc++]   = argv[i++];
             }
             pass_argv[pass_argc++] = argv[i];
             cpp_argv[cpp_argc++]   = argv[i++];
-        } else if (!strcmp(argv[i], "-MF") || !strcmp(argv[i], "-MT")) {
+        } else if (!flagstrcmp(argv[i], "-MF") || !flagstrcmp(argv[i], "-MT")) {
             // Deps generation, pass to cpp only
             pass_argv[pass_argc++] = argv[i];
             cpp_argv[cpp_argc++]   = argv[i++];
@@ -329,7 +354,7 @@ int main(int argc, char *argv[])
                 pass_argv[pass_argc++] = argv[i];
                 cpp_argv[cpp_argc++]   = argv[i++];
             }
-        } else if (!strncmp(argv[i], "-FI", 3)) {
+        } else if (!flagstrncmp(argv[i], "-FI", 3)) {
             // Forced include, pass to cpp only
             pass_argv[pass_argc++] = argv[i];
             cpp_argv[cpp_argc++]   = argv[i++];
