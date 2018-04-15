@@ -2,10 +2,11 @@ EXT=.exe
 
 all: c99conv$(EXT) c99wrap$(EXT)
 
-CLANGDIR=/home/rbultje/Projects/llvm-3.1.src
+CLANGDIR?=/home/rbultje/Projects/llvm-3.1.src
 CC=cl.exe
-CFLAGS=-nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -Dsnprintf=_snprintf -I. -I$(CLANGDIR)/tools/clang/include
-LDFLAGS=-nologo -Z7 $(CLANGDIR)/lib/Release/libclang.lib
+CLANGLIBS=$(CLANGDIR)/lib/libclang.lib
+CFLAGS=-nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -I$(CLANGDIR)/include $(shell llvm-config --cflags)
+LDFLAGS=-nologo -Z7 $(CLANGLIBS)
 
 clean:
 	rm -f c99conv$(EXT) c99wrap$(EXT) convert.o compilewrap.o
