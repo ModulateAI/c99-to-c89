@@ -29,6 +29,7 @@
 #endif
 
 #define CONVERTER "c99conv"
+#define DEBUG 1
 
 static char* create_cmdline(char **argv)
 {
@@ -193,13 +194,21 @@ int flagstrncmp ( const char * str1, const char * str2, size_t num )
 }
 
 
-char **split_commandline(const char *cmdline, int *argc)
+char **split_commandline(char *cmdline, int *argc)
 {
     int i;
     char **argv = NULL;
 
     if (!cmdline) {
         return NULL;
+    }
+
+    /* Get rid of anything after the first newline (0d 0a) */
+    if (strchr(cmdline, 0x0d)) {
+        *strchr(cmdline, 0x0d) = '\0';
+    }
+    if (strchr(cmdline, 0x0a)) {
+        *strchr(cmdline, 0x0a) = '\0';
     }
 
  #ifndef _WIN32
@@ -318,9 +327,17 @@ char * read_file(const char * filename) {
 void print_argv(char * name, char ** argv, int argc)
 {
 #if defined(DEBUG)
-    int i;
-    for (i=0; i < argc; i++) {
-        printf("%s[%d]=%s\n", name, i, argv[i]);
+    int i, j;
+    for (i = 0; i < argc; i++) {
+        if (!argv[i]) {
+            printf("%s[%d]=(NULL)\n (NULL)",name, i);
+        } else {
+            printf("%s[%d]=%s\n", name, i, argv[i]);
+            for (j=0; j < strlen(argv[i]); j++) {
+                printf(" %02x", (unsigned char)argv[i][j]);
+            }
+        }
+        printf("\n");
     }
 #endif
 }
@@ -382,6 +399,7 @@ int main(int argc, char *argv[])
         response_file = read_file(&(argv[argc-1][1]));
         if (response_file) {
             char ** argv_temp = split_commandline(response_file, &argc);
+            print_argv("argv_temp", argv_temp, argc);
             char *cl_or_icl = argv[i];
             argv = malloc((argc+1) * sizeof(char*));
             argv[0] = cl_or_icl;

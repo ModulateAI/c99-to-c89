@@ -3,7 +3,7 @@ package:
   version: 1.0.3
 
 build:
-  number: 1
+  number: 2
   skip: true  # [win and vc!=14]
 
 source:
@@ -49,6 +49,8 @@ test:
     - c99wrap -keep cl /nologo -DDLL_EXPORT -DHAVE_CONFIG_H -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_DEPRECATE -Dlzma_EXPORTS -I%CD%\tests /DWIN32 /D_WINDOWS /Fo%TEMP%\check.c.obj -c %CD%\tests\check.c
     - echo /nologo -DDLL_EXPORT -DHAVE_CONFIG_H -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_DEPRECATE -Dlzma_EXPORTS -I%CD%\tests /DWIN32 /D_WINDOWS /Fo%TEMP%\check.c.obj -c %CD%\tests\check.c > response-file
     - c99wrap -keep cl @response-file
+    - c99wrap -keep cl /Fo%TEMP%\test-macro-line-continuation.o -c %CD%\tests\test-macro-line-continuation.c
+    - c99wrap -keep cl /Fo%TEMP%\test-pragma-comment.o -c %CD%\tests\test-pragma-comment.c
 
 about:
   home: https://github.com/libav/c99-to-c89
