@@ -29,7 +29,9 @@
 #endif
 
 #define CONVERTER "c99conv"
+/*
 #define DEBUG 1
+*/
 
 static char* create_cmdline(char **argv)
 {
@@ -579,26 +581,31 @@ int main(int argc, char *argv[])
                                         "version='" "9.0.21022.8" "' " \
                                         "processorArchitecture='amd64' " \
                                         "publicKeyToken='" "1fc8b3b9a1e18e3b" "'\"")
-        .. and then clang will remove these continuations and the compiler cannot handle that.
-        */
+        .. and then clang will remove these continuations and the compiler cannot handle that
+        (because it's not valid).
+    */
     char * preproc_out = read_file(temp_file_1);
-        if (preproc_out == NULL) {
-                exit_code = 1;
-                goto exit;
-        }
-        static char line_cont_1[] = { '\\', 0x0d, 0x0a, '\0' };
-        static char line_cont_2[] = { '\\', 0x0d, '\0' };
-        char * cursor = strstr(preproc_out, line_cont_1);
-        size_t remain = strlen(preproc_out) + 1;
-        size_t final = remain;
-        while (cursor != NULL) {
-                memmove(cursor, cursor + 3, remain - 3);
-                remain -= 3;
-                cursor = strstr(cursor, line_cont_1);
-        }
-        if (remain != final) {
-                write_file(preproc_out, remain - 1, temp_file_1);
-        }
+    if (preproc_out == NULL) {
+        exit_code = 1;
+        goto exit;
+    }
+    static char line_cont_1[] = { '\\', 0x0d, 0x0a, '\0' };
+    char * old_cursor = preproc_out;
+    char * cursor = strstr(preproc_out, line_cont_1);
+    size_t remain = strlen(preproc_out) + 1;
+    size_t final = remain;
+    size_t initial = remain;
+    while (cursor != NULL) {
+        size_t gap = cursor - old_cursor;
+        remain -= gap + 3;
+        final -= 3;
+        memmove(cursor, cursor + 3, remain);
+        old_cursor = cursor;
+        cursor = strstr(cursor, line_cont_1);
+    }
+    if (final != initial) {
+        write_file(preproc_out, final - 1, temp_file_1);
+    }
 
     conv_argv[0] = conv_tool;
     conv_argv[1] = convert_options;

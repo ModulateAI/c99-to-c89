@@ -3,7 +3,7 @@ package:
   version: 1.0.3
 
 build:
-  number: 2
+  number: 3
   skip: true  # [win and vc!=14]
 
 source:
@@ -51,6 +51,10 @@ test:
     - c99wrap -keep cl @response-file
     - c99wrap -keep cl /Fo%TEMP%\test-macro-line-continuation.o -c %CD%\tests\test-macro-line-continuation.c
     - c99wrap -keep cl /Fo%TEMP%\test-pragma-comment.o -c %CD%\tests\test-pragma-comment.c
+    # Next problem, elseif appears from nowhere (a space that should be emitted is not being emitted?)
+    # .. this test must be the last one due it exiting in both cases.
+    - c99conv -ms %CD%\tests\stream_encoder.c.obj_preprocessed.c %TEMP%\stream_encoder.c.converted.c
+    - findstr elseif %TEMP%\stream_encoder.c.converted.c && (exit /b 1) || (exit /b 0)
 
 about:
   home: https://github.com/libav/c99-to-c89
