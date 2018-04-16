@@ -4,8 +4,10 @@ all: c99conv$(EXT) c99wrap$(EXT)
 
 CLANGDIR?=/home/rbultje/Projects/llvm-3.1.src
 CC=cl.exe
-CLANGLIBS=$(CLANGDIR)/lib/libclang.lib
-CFLAGS=-nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -I$(CLANGDIR)/include $(shell llvm-config --cflags)
+# CLANGLIBS=$(CLANGDIR)/lib/libclang.lib
+CLANGLIBS=$(CLANGDIR)/lib/c99-to-c89-libclang.lib
+CFLAGS?=
+CFLAGS+=-nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -I$(CLANGDIR)/include
 LDFLAGS=-nologo -Z7 $(CLANGLIBS)
 
 clean:

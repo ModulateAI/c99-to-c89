@@ -1,0 +1,47 @@
+package:
+  name: c99-to-c89
+  version: 1.0.3
+
+build:
+  number: 1
+  skip: true  # [win and vc!=14]
+
+source:
+  - path: ..
+  # We need a libclang. No one builds them statically for Windows unfortunately (though the
+  # libav binaries have been built this way). I rename the libclang.dll in these to avoid
+  # conflicts with conda-forge's clangdev (which we cannot use at present due to compat).
+  - url: http://releases.llvm.org/6.0.0/LLVM-6.0.0-win32.exe                  # [win32]
+    sha256: 7e3142d623ff12e18bea598e1bd55d8c96ff660f735daf0a469c2033b4d13c2c  # [win32]
+  - url: http://releases.llvm.org/6.0.0/LLVM-6.0.0-win64.exe                  # [win64]
+    sha256: 2501887b2f638d3f65b0336f354b96f8108b563522d81e841d5c88c34af283dd  # [win64]
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - msinttypes  # [win and vc==9]
+    - m2-make
+    - m2-filesystem
+    - m2-p7zip
+    - m2w64-tools-git
+
+test:
+  requires:
+    - {{ compiler('c') }}
+  files:
+    - tests
+  commands:
+    - c99wrap -keep cl /nologo -DDLL_EXPORT -DHAVE_CONFIG_H -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_DEPRECATE -Dlzma_EXPORTS -I%CD%\tests /DWIN32 /D_WINDOWS /Fo%TEMP%\check.c.obj -c %CD%\tests\check.c
+    - c99wrap -keep cl @tests\response-file
+
+about:
+  home: https://github.com/libav/c99-to-c89
+  license: Apache 2.0
+  license_family: Apache
+  license_file: LICENSE
+  summary: 'Tool to convert C99 code to MSVC-compatible C89'
+  dev_url: https://github.com/libav/c99-to-c89
+
+extra:
+  recipe-maintainers:
+    - mingwandroid
