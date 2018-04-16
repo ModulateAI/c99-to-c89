@@ -41,5 +41,3 @@ pushd ${PREFIX}/Library/bin
   echo "more !respo:~1!"                                   >> c99-to-c89-cmake-nmake-wrap.bat
   echo "~dp0c99wrap.exe cl %*"                             >> c99-to-c89-cmake-nmake-wrap.bat
 popd
-exit 1
-

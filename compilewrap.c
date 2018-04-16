@@ -315,6 +315,17 @@ char * read_file(const char * filename) {
 }
 
 
+void print_argv(char * name, char ** argv, int argc)
+{
+#if defined(DEBUG)
+    int i;
+    for (i=0; i < argc; i++) {
+        printf("%s[%d]=%s\n", name, i, argv[i]);
+    }
+#endif
+}
+
+
 int main(int argc, char *argv[])
 {
     int i = 1;
@@ -370,7 +381,12 @@ int main(int argc, char *argv[])
     if (argv[argc-1][0] == '@') {
         response_file = read_file(&(argv[argc-1][1]));
         if (response_file) {
-            argv = split_commandline(response_file, &argc);
+            char ** argv_temp = split_commandline(response_file, &argc);
+            char *cl_or_icl = argv[i];
+            argv = malloc((argc+1) * sizeof(char*));
+            argv[0] = cl_or_icl;
+            memcpy(&argv[1], argv_temp, argc * sizeof(char*));
+            print_argv("response_argv", argv, argc);
             free(response_file);
             i = 0;
         }
@@ -505,6 +521,10 @@ int main(int argc, char *argv[])
     cpp_argv[cpp_argc++]   = NULL;
     cc_argv[cc_argc++]     = NULL;
     pass_argv[pass_argc++] = NULL;
+
+    print_argv("cpp_argv", cpp_argv, cpp_argc);
+    print_argv("cc_argv", cc_argv, cc_argc);
+    print_argv("pass_argv", pass_argv, pass_argc);
 
     if (!flag_compile || !source_file || !outname) {
         /* Doesn't seem like we should be invoked, just call the parameters as such */

@@ -11,15 +11,28 @@ source:
   # We need a libclang. No one builds them statically for Windows unfortunately (though the
   # libav binaries have been built this way). I rename the libclang.dll in these to avoid
   # conflicts with conda-forge's clangdev (which we cannot use at present due to compat).
-  - url: http://releases.llvm.org/6.0.0/LLVM-6.0.0-win32.exe                  # [win32]
-    sha256: 7e3142d623ff12e18bea598e1bd55d8c96ff660f735daf0a469c2033b4d13c2c  # [win32]
-  - url: http://releases.llvm.org/6.0.0/LLVM-6.0.0-win64.exe                  # [win64]
-    sha256: 2501887b2f638d3f65b0336f354b96f8108b563522d81e841d5c88c34af283dd  # [win64]
+  # LLVM 6 has changed too much and is no longer compatible. It is at the ABI level, but
+  # not semantically (Assertion failed: n_tokens == 2, file convert.c, line 559).
+  # - url: http://releases.llvm.org/6.0.0/LLVM-6.0.0-win32.exe                  # [win32]
+  #   sha256: 7e3142d623ff12e18bea598e1bd55d8c96ff660f735daf0a469c2033b4d13c2c  # [win32]
+  # - url: http://releases.llvm.org/6.0.0/LLVM-6.0.0-win64.exe                  # [win64]
+  #   sha256: 2501887b2f638d3f65b0336f354b96f8108b563522d81e841d5c88c34af283dd  # [win64]
+  # 5.0.0 does not work (Assertion failed: n_tokens == 2, file convert.c, line 559):
+  # - url: http://releases.llvm.org/5.0.0/LLVM-5.0.0-win32.exe                  # [win32]
+  # - url: http://releases.llvm.org/5.0.0/LLVM-5.0.0-win64.exe                  # [win64]
+  # 4.0.1 does not work (Assertion failed: n_tokens == 2, file convert.c, line 559):
+  # - url: http://releases.llvm.org/4.0.1/LLVM-4.0.1-win32.exe                  # [win32]
+  # - url: http://releases.llvm.org/4.0.1/LLVM-4.0.1-win64.exe                  # [win64]
+  # 3.9.1 is the latest release that c99-to-c89 is compatible with:
+  - url: http://releases.llvm.org/3.9.1/LLVM-3.9.1-win32.exe                    # [win32]
+  - url: http://releases.llvm.org/3.9.1/LLVM-3.9.1-win64.exe                    # [win64]
 
 requirements:
   build:
     - {{ compiler('c') }}
     - msinttypes  # [win and vc==9]
+    - m2-sed
+    - m2-base
     - m2-make
     - m2-filesystem
     - m2-p7zip
@@ -31,8 +44,11 @@ test:
   files:
     - tests
   commands:
+    - echo on
+    - echo cd %CD%
     - c99wrap -keep cl /nologo -DDLL_EXPORT -DHAVE_CONFIG_H -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_DEPRECATE -Dlzma_EXPORTS -I%CD%\tests /DWIN32 /D_WINDOWS /Fo%TEMP%\check.c.obj -c %CD%\tests\check.c
-    - c99wrap -keep cl @tests\response-file
+    - echo /nologo -DDLL_EXPORT -DHAVE_CONFIG_H -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_DEPRECATE -Dlzma_EXPORTS -I%CD%\tests /DWIN32 /D_WINDOWS /Fo%TEMP%\check.c.obj -c %CD%\tests\check.c > response-file
+    - c99wrap -keep cl @response-file
 
 about:
   home: https://github.com/libav/c99-to-c89
