@@ -386,6 +386,7 @@ int main(int argc, char *argv[])
             argv = malloc((argc+1) * sizeof(char*));
             argv[0] = cl_or_icl;
             memcpy(&argv[1], argv_temp, argc * sizeof(char*));
+            argc++;
             print_argv("response_argv", argv, argc);
             free(response_file);
             i = 0;
