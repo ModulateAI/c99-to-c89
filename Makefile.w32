@@ -33,7 +33,7 @@ c99conv$(EXT): convert.o
 	$(CC) -Fe$@ $< $(LDFLAGS) $(LIBS)
 
 c99wrap$(EXT): compilewrap.o
-	$(CC) -Fe$@ $< $(LDFLAGS)
+	$(CC) -Fe$@ $< $(LDFLAGS) Shell32.lib
 
 %.o: %.c
 	$(CC) $(CFLAGS) -Fo$@ -c $<

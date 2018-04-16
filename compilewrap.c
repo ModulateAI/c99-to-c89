@@ -25,6 +25,7 @@
 #else
 #include <unistd.h>
 #include <sys/wait.h>
+#include <wordexp.h>
 #endif
 
 #define CONVERTER "c99conv"
@@ -192,6 +193,128 @@ int flagstrncmp ( const char * str1, const char * str2, size_t num )
 }
 
 
+char **split_commandline(const char *cmdline, int *argc)
+{
+    int i;
+    char **argv = NULL;
+
+    if (!cmdline) {
+        return NULL;
+    }
+
+ #ifndef _WIN32
+    {
+        wordexp_t p;
+
+        // Note! This expands shell variables.
+        if (wordexp(cmdline, &p, 0))
+        {
+            return NULL;
+        }
+
+        *argc = p.we_wordc;
+
+        if (!(argv = calloc(*argc, sizeof(char *))))
+        {
+            goto fail;
+        }
+
+        for (i = 0; i < p.we_wordc; i++)
+        {
+            if (!(argv[i] = strdup(p.we_wordv[i])))
+            {
+                goto fail;
+            }
+        }
+
+        wordfree(&p);
+
+        return argv;
+    fail:
+        wordfree(&p);
+    }
+#else
+    {
+        wchar_t **wargs = NULL;
+        size_t needed = 0;
+        wchar_t *cmdlinew = NULL;
+        size_t len = strlen(cmdline) + 1;
+
+        if (!(cmdlinew = calloc(len, sizeof(wchar_t))))
+            goto fail;
+
+        if (!MultiByteToWideChar(CP_ACP, 0, cmdline, -1, cmdlinew, len))
+            goto fail;
+
+        if (!(wargs = CommandLineToArgvW(cmdlinew, argc)))
+            goto fail;
+
+        if (!(argv = calloc(*argc, sizeof(char *))))
+            goto fail;
+
+        // Convert from wchar_t * to ANSI char *
+        for (i = 0; i < *argc; i++)
+        {
+            // Get the size needed for the target buffer.
+            // CP_ACP = Ansi Codepage.
+            needed = WideCharToMultiByte(CP_ACP, 0, wargs[i], -1,
+                                        NULL, 0, NULL, NULL);
+
+            if (!(argv[i] = malloc(needed)))
+                goto fail;
+
+            // Do the conversion.
+            needed = WideCharToMultiByte(CP_ACP, 0, wargs[i], -1,
+                                        argv[i], needed, NULL, NULL);
+        }
+
+        if (wargs) LocalFree(wargs);
+        if (cmdlinew) free(cmdlinew);
+        return argv;
+
+    fail:
+        if (wargs) LocalFree(wargs);
+        if (cmdlinew) free(cmdlinew);
+    }
+    #endif // WIN32
+
+    if (argv)
+    {
+        for (i = 0; i < *argc; i++)
+        {
+            if (argv[i])
+            {
+                free(argv[i]);
+            }
+        }
+
+        free(argv);
+    }
+
+    return NULL;
+}
+
+
+char * read_file(const char * filename) {
+    char * buf = NULL;
+    long len;
+    FILE * f = fopen (filename, "rb");
+
+    if (f) {
+        fseek (f, 0, SEEK_END);
+        len = ftell (f);
+        fseek (f, 0, SEEK_SET);
+        buf = malloc (len + 1);
+        if (buf != NULL) {
+            fread (buf, 1, len, f);
+            buf[len] = '\0';
+        }
+        fclose (f);
+    }
+    return buf;
+}
+
+
 int main(int argc, char *argv[])
 {
     int i = 1;
@@ -206,6 +329,7 @@ int main(int argc, char *argv[])
     char *conv_argv[5], *conv_tool;
     const char *source_file = NULL;
     const char *outname = NULL;
+    char *response_file = NULL;
     char convert_options[20] = "";
 
     conv_tool = malloc(strlen(argv[0]) + strlen(CONVERTER) + 1);
@@ -241,6 +365,16 @@ int main(int argc, char *argv[])
         strcpy(convert_options, "-ms");
     } else if (i < argc && !strncmp(argv[i], "icl", 3) && (argv[i][3] == '.' || argv[i][3] == '\0'))
         msvc = 1; /* for command line compatibility */
+
+    /* are we using a response file? If so reform argv and argc from it */
+    if (argv[argc-1][0] == '@') {
+        response_file = read_file(&(argv[argc-1][1]));
+        if (response_file) {
+            argv = split_commandline(response_file, &argc);
+            free(response_file);
+            i = 0;
+        }
+    }
 
     sprintf(temp_file_1, "preprocessed_%d.c", getpid());
     sprintf(temp_file_2, "converted_%d.c", getpid());
