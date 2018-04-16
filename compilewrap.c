@@ -304,6 +304,7 @@ char **split_commandline(char *cmdline, int *argc)
 }
 
 
+/* Allocates and returns a buffer containing the contents of filename with a NULL terminator. */
 char * read_file(const char * filename) {
     char * buf = NULL;
     long len;
@@ -321,6 +322,19 @@ char * read_file(const char * filename) {
         fclose (f);
     }
     return buf;
+}
+
+
+void write_file(const char * buf, size_t len, const char * filename)
+{
+#ifdef DEBUG
+        if (strlen(buf) != len) {
+                printf("Error, not saving all of file. strlen(buf)=%d, asked to save len=%d\n", strlen(buf), len);
+        }
+#endif
+        FILE * f = fopen(filename, "wb");
+        fwrite (buf, 1, len, f);
+        fclose(f);
 }
 
 
@@ -559,6 +573,32 @@ int main(int argc, char *argv[])
 
         goto exit;
     }
+    /* VS2008 pre-processor does not remove line-continuations, so you end up with:
+    #pragma comment(linker,"/manifestdependency:\"type='win32' " \
+                    "name='" "Microsoft.VC90" ".DebugCRT' " \
+                                        "version='" "9.0.21022.8" "' " \
+                                        "processorArchitecture='amd64' " \
+                                        "publicKeyToken='" "1fc8b3b9a1e18e3b" "'\"")
+        .. and then clang will remove these continuations and the compiler cannot handle that.
+        */
+    char * preproc_out = read_file(temp_file_1);
+        if (preproc_out == NULL) {
+                exit_code = 1;
+                goto exit;
+        }
+        static char line_cont_1[] = { '\\', 0x0d, 0x0a, '\0' };
+        static char line_cont_2[] = { '\\', 0x0d, '\0' };
+        char * cursor = strstr(preproc_out, line_cont_1);
+        size_t remain = strlen(preproc_out) + 1;
+        size_t final = remain;
+        while (cursor != NULL) {
+                memmove(cursor, cursor + 3, remain - 3);
+                remain -= 3;
+                cursor = strstr(cursor, line_cont_1);
+        }
+        if (remain != final) {
+                write_file(preproc_out, remain - 1, temp_file_1);
+        }
 
     conv_argv[0] = conv_tool;
     conv_argv[1] = convert_options;
