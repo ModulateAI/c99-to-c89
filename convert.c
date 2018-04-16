@@ -290,7 +290,7 @@ static enum CXChildVisitResult fill_struct_members(CXCursor cursor,
                                                    CXCursor parent,
                                                    CXClientData client_data)
 {
-    unsigned decl_idx = (unsigned) client_data;
+    uintptr_t decl_idx = (uintptr_t) client_data;
     StructDeclaration *decl = &structs[decl_idx];
     CXString cstr = clang_getCursorSpelling(cursor);
     const char *str = clang_getCString(cstr);
@@ -403,7 +403,7 @@ static enum CXChildVisitResult fill_struct_members(CXCursor cursor,
 static void register_struct(const char *str, CXCursor cursor,
                             TypedefDeclaration *decl_ptr, int is_union)
 {
-    unsigned n;
+    uintptr_t n;
     StructDeclaration *decl;
 
     for (n = 0; n < n_structs; n++) {
