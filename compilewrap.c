@@ -358,6 +358,24 @@ void print_argv(char * name, char ** argv, int argc)
 #endif
 }
 
+size_t remove_string(char * input, char * to_remove, size_t * initialsz)
+{
+    char * old_cursor = input;
+    char * cursor = strstr(input, to_remove);
+    size_t remain = strlen(input) + 1;
+    size_t finalsz = remain;
+    size_t to_remove_sz = strlen(to_remove);
+    *initialsz = remain;
+    while (cursor != NULL) {
+        size_t gap = cursor - old_cursor;
+        remain -= gap + to_remove_sz;
+        finalsz -= to_remove_sz;
+        memmove(cursor, cursor + 3, remain);
+        old_cursor = cursor;
+        cursor = strstr(cursor, line_cont_1);
+    }
+    return finalsz;
+}
 
 int main(int argc, char *argv[])
 {
@@ -589,21 +607,11 @@ int main(int argc, char *argv[])
         exit_code = 1;
         goto exit;
     }
-    static char line_cont_1[] = { '\\', 0x0d, 0x0a, '\0' };
-    char * old_cursor = preproc_out;
-    char * cursor = strstr(preproc_out, line_cont_1);
-    size_t remain = strlen(preproc_out) + 1;
-    size_t final = remain;
-    size_t initial = remain;
-    while (cursor != NULL) {
-        size_t gap = cursor - old_cursor;
-        remain -= gap + 3;
-        final -= 3;
-        memmove(cursor, cursor + 3, remain);
-        old_cursor = cursor;
-        cursor = strstr(cursor, line_cont_1);
-    }
-    if (final != initial) {
+    static char line_cont[] = { '\\', 0x0d, 0x0a, '\0' };
+    // TODO :: Remove all lines that begin with #pragma once too.
+    size_t initialsz;
+    size_t finalsz = remove_string(preproc_out, line_cont, initialsz);
+    if (finalsz != initialsz) {
         write_file(preproc_out, final - 1, temp_file_1);
     }
 

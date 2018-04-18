@@ -1,1 +1,1 @@
-    stream_encoder_update() { 	; 		const lzma_ret ret } else if   
+a() { if (a=1) { printf("hello"); int t; } else if (a==2) { ; } }

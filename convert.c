@@ -29,7 +29,7 @@ cl.exe -Fec99conv.exe convert.o -nologo -Z7 C:\c99-to-c89-build\work\clang\lib\c
 REM And to debug it (should work provided the test phase fails):
 copy C:\c99-to-c89-build\_test_env\Library\bin\c99-to-c89-libclang.dll C:\c99-to-c89-build\work
 C:\c99-to-c89-build\work\c99conv.exe -ms C:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\stream_encoder.c.obj_preprocessed.c C:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\stream_encoder.c.obj_preprocessed.c.out
-"C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\devenv.exe" C:\c99-to-c89-build\work\c99conv.exe
+"C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe" C:\c99-to-c89-build\work\c99conv.exe
 */
 
 #include <assert.h>
@@ -206,7 +206,26 @@ static FILE *out;
 
 static CXTranslationUnit TU;
 
-#define DEBUG 1
+/*#define DEBUG 1*/
+#if defined(DEBUG) && (DEBUG==1)
+#define DEBUG_TO_VISUAL_STUDIO
+#endif
+
+#if defined(DEBUG) && (DEBUG==1) && defined(DEBUG_TO_VISUAL_STUDIO)
+#include <windows.h>
+int print_log(const char* format, ...) {
+    char printf_buf[1024];
+    va_list args;
+    va_start(args, format);
+    _vsnprintf(printf_buf, sizeof(printf_buf), format, args);
+    va_end(args);
+    OutputDebugStringA(printf_buf);
+    return 0;
+}
+#define printf(format, ...) \
+    print_log(format, __VA_ARGS__)
+#endif
+
 #define dprintf(...) \
     if (DEBUG) \
         printf(__VA_ARGS__)
@@ -742,6 +761,11 @@ static unsigned get_token_offset(CXToken token)
     unsigned line, col, off;
 
     clang_getSpellingLocation(l, &file, &line, &col, &off);
+#if defined(DEBUG) && (DEBUG==1)
+    CXString spelling = clang_getTokenSpelling(TU, token);
+    dprintf("get_token_offset(%s): line=%d, col=%d, off(retval)=%d\n", clang_getCString(spelling), line, col, off);
+    clang_disposeString(spelling);
+#endif
 
     return off;
 }
@@ -1143,15 +1167,36 @@ static void analyze_decl_context(CompoundLiteralList *l,
 {
     CursorRecursion *p = rec->parent;
 
+#if defined(DEBUG) && (DEBUG==1)
+    CXString pc_spelling = clang_getCursorKindSpelling(p->kind);
+    dprintf("analyze_decl_context for decl containing PARENT (%s):\n", clang_getCString(pc_spelling));
+    clang_disposeString(pc_spelling);
+    for (int ti = 0; ti < p->n_tokens; ti++) {
+        CXString spelling = clang_getTokenSpelling(TU, p->tokens[ti]);
+        dprintf(" %s\n", clang_getCString(spelling));
+        clang_disposeString(spelling);
+    }
+    CXString c_spelling = clang_getCursorKindSpelling(rec->kind);
+    dprintf("analyze_decl_context for decl containing THIS (%s):\n", clang_getCString(c_spelling));
+    clang_disposeString(c_spelling);
+    for (int ti = 0; ti < rec->n_tokens; ti++) {
+        CXString spelling = clang_getTokenSpelling(TU, rec->tokens[ti]);
+        dprintf(" %s\n", clang_getCString(spelling));
+        clang_disposeString(spelling);
+    }
+#endif
+
     // FIXME if parent.kind == CXCursor_CompoundStmt, simply go from here until
     // the end of that compound context.
     // in other cases (e.g. declaration inside a for/while), find the complete
     // context (e.g. before the while/for) and declare new context around that
     // whole thing
+        // FIXME if parent.kind == CXCursor_CompoundStmt, and one of the children is
+        // a NullStmt we end up emiting incorrect spaces.
     if (p->kind == CXCursor_CompoundStmt) {
         l->type = TYPE_NEW_CONTEXT;
-        l->context.start = get_token_offset(rec->tokens[0]);
-        l->cast_token.start = get_token_offset(rec->tokens[0]);
+        l->context.start = get_token_offset(p->tokens[0]);
+                l->cast_token.start = l->context.start; // get_token_offset(rec->tokens[0]);
         l->context.end = get_token_offset(p->tokens[p->n_tokens - 1]);
     } else if (p->kind == CXCursor_ForStmt && rec->parent->child_cntr == 1) {
         l->type = TYPE_LOOP_CONTEXT;
@@ -1309,11 +1354,14 @@ static enum CXChildVisitResult callback(CXCursor cursor, CXCursor parent,
     }
 
 #define DEBUG 1
-    dprintf("DERP: %d [%d:%d] %s @ %d:%d in %s\n", cursor.kind, parent.kind,
+    CXString c_spelling = clang_getCursorKindSpelling(cursor.kind);
+    CXString pc_spelling = clang_getCursorKindSpelling(parent.kind);
+    dprintf("DERP: kind=%s [pkind=%s:child_cntr=%d] %s @ %d:%d in %s\n", clang_getCString(c_spelling), clang_getCString(pc_spelling),
             rec.parent->child_cntr, clang_getCString(str), line, col,
             clang_getCString(filename));
-    for (i = 0; i < n_tokens; i++)
-    {
+    clang_disposeString(c_spelling);
+    clang_disposeString(pc_spelling);
+    for (i = 0; i < n_tokens; i++) {
         CXString spelling = clang_getTokenSpelling(TU, tokens[i]);
         CXSourceLocation l = clang_getTokenLocation(TU, tokens[i]);
         clang_getSpellingLocation(l, &file, &line, &col, &off);
@@ -1877,15 +1925,64 @@ static void get_token_position(CXToken token, unsigned *lnum,
     (*pos)--;
 }
 
+/*
 static void indent_for_token(CXToken token, unsigned *lnum,
                              unsigned *pos, unsigned *off)
 {
     unsigned l, p;
+#if defined(DEBUG) && (DEBUG==1)
+    CXString s = clang_getTokenSpelling(TU, token);
+    const char * str = clang_getCString(s);
+    unsigned nspaces = 0;
+#endif
     get_token_position(token, &l, &p, off);
     for (; *lnum < l; (*lnum)++, *pos = 0)
         fprintf(out, "\n");
-    for (; *pos < p; (*pos)++)
+    for (; *pos < p; (*pos)++) {
         fprintf(out, " ");
+        nspaces++;
+    }
+#if defined(DEBUG) && (DEBUG==1)
+    printf("indent_for_token %s = %d (nspaces), %d:%d, *off=%d\n", str, nspaces, l, p, *off);
+    clang_disposeString(s);
+#endif
+}
+*/
+
+/* The old implementation of this seems to be badly broken for the case of rewriting tokens when
+   others follow it on the same line. No attempt was made to adjust the positions of the subsequent
+   tokens meaning, in the case of adding more characters, they would always be behind *pos and so no
+   spaces would ever be emitted. Instead we now concern ourselves with the relative spacing from one
+   token to the next. It might be better if this project manipulated the AST instead. */
+static void indent_for_token(CXToken token, unsigned *lnum,
+                             unsigned *pos, unsigned *off)
+{
+    static int prev_l = -1;
+    static int prev_p_end = -1;
+    unsigned l, p;
+    CXSourceRange range = clang_getTokenExtent(TU, token);
+
+    get_token_position(token, &l, &p, off);
+    if (prev_l != -1) {
+        for (; prev_l < l; prev_l++, prev_p_end = -1, *pos = 0, (*lnum)++)
+            fprintf(out, "\n");
+    }
+    else {
+        for (; *lnum < l; (*lnum)++, *pos = 0)
+            fprintf(out, "\n");
+    }
+    if (prev_p_end != -1) {
+         for (; prev_p_end < p; prev_p_end++, (*pos)++)
+             fprintf(out, " ");
+        }
+    else {
+        for (; *pos < p; (*pos)++)
+            fprintf(out, " ");
+    }
+    prev_l = l;
+    prev_p_end = p + range.end_int_data - range.begin_int_data;
+
+    return;
 }
 
 static void print_literal_text(const char *str, unsigned *lnum,
@@ -2613,8 +2710,14 @@ int convert(const char *infile, const char *outfile, int ms_compat)
     return 0;
 }
 
-int main(int argc, char *argv[])
-{
+#if !defined(DEBUG_TO_VISUAL_STUDIO)
+int main(int argc, char *argv[]) {
+#else
+int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    int argc = __argc;
+    char ** argv = __argv;
+#endif
+
     int arg = 1;
     int ms_compat = 0;
     while (arg < argc) {
