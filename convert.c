@@ -206,7 +206,7 @@ static FILE *out;
 
 static CXTranslationUnit TU;
 
-/*#define DEBUG 1*/
+#define DEBUG 0
 #if defined(DEBUG) && (DEBUG==1)
 #define DEBUG_TO_VISUAL_STUDIO
 #endif
@@ -1129,13 +1129,13 @@ static void analyze_compound_literal_lineage(CompoundLiteralList *l,
 {
     CursorRecursion *p = rec, *p2;
 
-#define DEBUG 1
+#define DEBUG 0
     dprintf("CL lineage: ");
     do {
         dprintf("%d[%d], ", p->kind, p->child_cntr);
     } while ((p = p->parent));
     dprintf("\n");
-#define DEBUG 1
+#define DEBUG 0
 
     p = rec->parent->parent;
     p2 = find_function_or_top(rec);
@@ -1353,7 +1353,7 @@ static enum CXChildVisitResult callback(CXCursor cursor, CXCursor parent,
         rec_ptr = rec_ptr->parent;
     }
 
-#define DEBUG 1
+#if defined(DEBUG) && (DEBUG==1)
     CXString c_spelling = clang_getCursorKindSpelling(cursor.kind);
     CXString pc_spelling = clang_getCursorKindSpelling(parent.kind);
     dprintf("DERP: kind=%s [pkind=%s:child_cntr=%d] %s @ %d:%d in %s\n", clang_getCString(c_spelling), clang_getCString(pc_spelling),
@@ -1368,7 +1368,7 @@ static enum CXChildVisitResult callback(CXCursor cursor, CXCursor parent,
         dprintf("token = '%s' @ %d:%d\n", clang_getCString(spelling), line, col);
         clang_disposeString(spelling);
     }
-#define DEBUG 1
+#endif
 
     switch (cursor.kind) {
     case CXCursor_TypedefDecl: {
@@ -2543,7 +2543,7 @@ static void cleanup(void)
 {
     unsigned n, m;
 
-#define DEBUG 1
+#define DEBUG 0
     dprintf("N compound literals: %d\n", n_comp_literal_lists);
     for (n = 0; n < n_comp_literal_lists; n++) {
         dprintf("[%d]: type=%d, struct=%d (%s), variable range=%u-%u\n",
@@ -2662,7 +2662,7 @@ static void cleanup(void)
         free(enums[n].name);
     }
     free(enums);
-#define DEBUG 1
+#define DEBUG 0
 }
 
 int convert(const char *infile, const char *outfile, int ms_compat)

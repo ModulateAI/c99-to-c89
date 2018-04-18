@@ -372,7 +372,7 @@ size_t remove_string(char * input, char * to_remove, size_t * initialsz)
         finalsz -= to_remove_sz;
         memmove(cursor, cursor + 3, remain);
         old_cursor = cursor;
-        cursor = strstr(cursor, line_cont_1);
+        cursor = strstr(cursor, to_remove);
     }
     return finalsz;
 }
@@ -610,9 +610,9 @@ int main(int argc, char *argv[])
     static char line_cont[] = { '\\', 0x0d, 0x0a, '\0' };
     // TODO :: Remove all lines that begin with #pragma once too.
     size_t initialsz;
-    size_t finalsz = remove_string(preproc_out, line_cont, initialsz);
+    size_t finalsz = remove_string(preproc_out, line_cont, &initialsz);
     if (finalsz != initialsz) {
-        write_file(preproc_out, final - 1, temp_file_1);
+        write_file(preproc_out, finalsz - 1, temp_file_1);
     }
 
     conv_argv[0] = conv_tool;
