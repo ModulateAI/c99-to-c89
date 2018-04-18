@@ -17,6 +17,21 @@
  * limitations under the License.
  */
 
+/*
+REM To build this:
+conda-build C:\Users\builder\conda\aggregate\c99-to-c89 --croot C:\c99-to-c89-build --no-build-id -m C:\Users\builder\conda\aggregate\conda_build_config.yaml -c msys2 -c https://repo.continuum.io/pkgs/main
+C:\Users\builder\m64\Scripts\activate.bat C:\c99-to-c89-build\_build_env
+rmdir C:\c99-to-c89-build\work
+move C:\c99-to-c89-build\work_* C:\c99-to-c89-build\work
+cd C:\c99-to-c89-build\work
+cl.exe -MD -GL -I%CONDA_PREFIX%\Library\include  -nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -IC:\c99-to-c89-build\work\clang\include -Foconvert.o -c C:\Users\builder\conda\aggregate\c99-to-c89\convert.c
+cl.exe -Fec99conv.exe convert.o -nologo -Z7 C:\c99-to-c89-build\work\clang\lib\c99-to-c89-libclang.lib
+REM And to debug it (should work provided the test phase fails):
+copy C:\c99-to-c89-build\_test_env\Library\bin\c99-to-c89-libclang.dll C:\c99-to-c89-build\work
+C:\c99-to-c89-build\work\c99conv.exe -ms C:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\stream_encoder.c.obj_preprocessed.c C:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\stream_encoder.c.obj_preprocessed.c.out
+"C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\devenv.exe" C:\c99-to-c89-build\work\c99conv.exe
+*/
+
 #include <assert.h>
 #include <stdio.h>
 #include <clang-c/Index.h>
@@ -191,7 +206,7 @@ static FILE *out;
 
 static CXTranslationUnit TU;
 
-#define DEBUG 0
+#define DEBUG 1
 #define dprintf(...) \
     if (DEBUG) \
         printf(__VA_ARGS__)
@@ -1090,13 +1105,13 @@ static void analyze_compound_literal_lineage(CompoundLiteralList *l,
 {
     CursorRecursion *p = rec, *p2;
 
-#define DEBUG 0
+#define DEBUG 1
     dprintf("CL lineage: ");
     do {
         dprintf("%d[%d], ", p->kind, p->child_cntr);
     } while ((p = p->parent));
     dprintf("\n");
-#define DEBUG 0
+#define DEBUG 1
 
     p = rec->parent->parent;
     p2 = find_function_or_top(rec);
@@ -1293,7 +1308,7 @@ static enum CXChildVisitResult callback(CXCursor cursor, CXCursor parent,
         rec_ptr = rec_ptr->parent;
     }
 
-#define DEBUG 0
+#define DEBUG 1
     dprintf("DERP: %d [%d:%d] %s @ %d:%d in %s\n", cursor.kind, parent.kind,
             rec.parent->child_cntr, clang_getCString(str), line, col,
             clang_getCString(filename));
@@ -1305,7 +1320,7 @@ static enum CXChildVisitResult callback(CXCursor cursor, CXCursor parent,
         dprintf("token = '%s' @ %d:%d\n", clang_getCString(spelling), line, col);
         clang_disposeString(spelling);
     }
-#define DEBUG 0
+#define DEBUG 1
 
     switch (cursor.kind) {
     case CXCursor_TypedefDecl: {
@@ -2431,13 +2446,13 @@ static void cleanup(void)
 {
     unsigned n, m;
 
-#define DEBUG 0
+#define DEBUG 1
     dprintf("N compound literals: %d\n", n_comp_literal_lists);
     for (n = 0; n < n_comp_literal_lists; n++) {
         dprintf("[%d]: type=%d, struct=%d (%s), variable range=%u-%u\n",
                 n, comp_literal_lists[n].type,
                 comp_literal_lists[n].struct_decl_idx,
-                comp_literal_lists[n].struct_decl_idx != (unsigned) -1 ?
+                structs && comp_literal_lists[n].struct_decl_idx != (unsigned) -1 ?
                     structs[comp_literal_lists[n].struct_decl_idx].name : "<none>",
                 comp_literal_lists[n].value_token.start,
                 comp_literal_lists[n].value_token.end);
@@ -2449,7 +2464,7 @@ static void cleanup(void)
         dprintf("[%d]: type=%d, struct=%d (%s), level=%d, n_entries=%d, range=%u-%u, depth=%u\n",
                 n, struct_array_lists[n].type,
                 struct_array_lists[n].struct_decl_idx,
-                struct_array_lists[n].struct_decl_idx != (unsigned) -1 ?
+                structs && struct_array_lists[n].struct_decl_idx != (unsigned) -1 ?
                     (structs[struct_array_lists[n].struct_decl_idx].name[0] ?
                      structs[struct_array_lists[n].struct_decl_idx].name :
                      "<anonymous>") : "<none>",
@@ -2550,7 +2565,7 @@ static void cleanup(void)
         free(enums[n].name);
     }
     free(enums);
-#define DEBUG 0
+#define DEBUG 1
 }
 
 int convert(const char *infile, const char *outfile, int ms_compat)
