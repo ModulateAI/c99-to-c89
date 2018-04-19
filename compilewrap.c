@@ -631,11 +631,13 @@ int main(int argc, char *argv[])
         goto exit;
     }
     static char line_cont[] = { '\\', 0x0d, 0x0a, '\0' };
-    // TODO :: Remove all lines that begin with #pragma once too.
+    /* We also remove #pragma once which is invalid in .c files and creates very noisy logs */
+    static char pragma_once[] = { "#pragma once\r\n" };
     size_t initialsz;
-    size_t finalsz = remove_string(preproc_out, line_cont, &initialsz);
-    if (finalsz != initialsz) {
-        write_file(preproc_out, finalsz - 1, temp_file_1);
+    size_t finalsz1 = remove_string(preproc_out, line_cont, &initialsz);
+    size_t finalsz2 = remove_string(pragma_once, line_cont, &finalsz1);
+    if (finalsz2 != initialsz) {
+        write_file(preproc_out, finalsz2 - 1, temp_file_1);
     }
 
     conv_argv[0] = conv_tool;
