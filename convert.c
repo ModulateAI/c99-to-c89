@@ -3,6 +3,7 @@
  * Copyright (c) 2012 Ronald S. Bultje <rsbultje@gmail.com>
  * Copyright (c) 2012 Derek Buitenhuis <derek.buitenhuis@gmail.com>
  * Copyright (c) 2012 Martin Storsjo <martin@martin.st>
+ * Copyright (c) 2018 Ray Donnelly, Anaconda Inc. <mingw.android@gmail.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -206,15 +207,21 @@ static FILE *out;
 
 static CXTranslationUnit TU;
 
-#define DEBUG 0
-#if defined(DEBUG) && (DEBUG==1)
-#define DEBUG_TO_VISUAL_STUDIO
-#endif
+/* 0 is no debugging */
+/* 1 prints clean-up stuff */
+/* 2 also prints a huge amount of token parsing info */
+/* 3 also prints info about some of the Anaconda Distribution modifications/bugfixes */
+static int DEBUG_LEVEL = 0;
 
-#if defined(DEBUG) && (DEBUG==1) && defined(DEBUG_TO_VISUAL_STUDIO)
+/* DEBUG_TO_VISUAL_STUDIO means use OutputDebugStringA instead of printf */
+/* #define DEBUG_TO_VISUAL_STUDIO */
+
+#if defined(DEBUG_TO_VISUAL_STUDIO)
 #include <windows.h>
 int print_log(const char* format, ...) {
     char printf_buf[1024];
+    if (DEBUG_LEVEL == 0)
+        return 0;
     va_list args;
     va_start(args, format);
     _vsnprintf(printf_buf, sizeof(printf_buf), format, args);
@@ -227,7 +234,7 @@ int print_log(const char* format, ...) {
 #endif
 
 #define dprintf(...) \
-    if (DEBUG) \
+    if (DEBUG_LEVEL != 0) \
         printf(__VA_ARGS__)
 
 static unsigned find_token_index(CXToken *tokens, unsigned n_tokens,
@@ -761,11 +768,12 @@ static unsigned get_token_offset(CXToken token)
     unsigned line, col, off;
 
     clang_getSpellingLocation(l, &file, &line, &col, &off);
-#if defined(DEBUG) && (DEBUG==1)
-    CXString spelling = clang_getTokenSpelling(TU, token);
-    dprintf("get_token_offset(%s): line=%d, col=%d, off(retval)=%d\n", clang_getCString(spelling), line, col, off);
-    clang_disposeString(spelling);
-#endif
+    /* This debug output is intended as part of debugging indentation errors that I hope I fixed with NEW_INDENT */
+    if (DEBUG_LEVEL > 2) {
+        CXString spelling = clang_getTokenSpelling(TU, token);
+        dprintf("get_token_offset(%s): line=%d, col=%d, off(retval)=%d\n", clang_getCString(spelling), line, col, off);
+        clang_disposeString(spelling);
+    }
 
     return off;
 }
@@ -1129,13 +1137,13 @@ static void analyze_compound_literal_lineage(CompoundLiteralList *l,
 {
     CursorRecursion *p = rec, *p2;
 
-#define DEBUG 0
-    dprintf("CL lineage: ");
-    do {
-        dprintf("%d[%d], ", p->kind, p->child_cntr);
-    } while ((p = p->parent));
-    dprintf("\n");
-#define DEBUG 0
+    if (DEBUG_LEVEL > 0) {
+        dprintf("CL lineage: ");
+        do {
+            dprintf("%d[%d], ", p->kind, p->child_cntr);
+        } while ((p = p->parent));
+        dprintf("\n");
+    }
 
     p = rec->parent->parent;
     p2 = find_function_or_top(rec);
@@ -1167,24 +1175,24 @@ static void analyze_decl_context(CompoundLiteralList *l,
 {
     CursorRecursion *p = rec->parent;
 
-#if defined(DEBUG) && (DEBUG==1)
-    CXString pc_spelling = clang_getCursorKindSpelling(p->kind);
-    dprintf("analyze_decl_context for decl containing PARENT (%s):\n", clang_getCString(pc_spelling));
-    clang_disposeString(pc_spelling);
-    for (int ti = 0; ti < p->n_tokens; ti++) {
-        CXString spelling = clang_getTokenSpelling(TU, p->tokens[ti]);
-        dprintf(" %s\n", clang_getCString(spelling));
-        clang_disposeString(spelling);
+    if (DEBUG_LEVEL > 0) {
+        CXString pc_spelling = clang_getCursorKindSpelling(p->kind);
+        dprintf("analyze_decl_context for decl containing PARENT (%s):\n", clang_getCString(pc_spelling));
+        clang_disposeString(pc_spelling);
+        for (int ti = 0; ti < p->n_tokens; ti++) {
+            CXString spelling = clang_getTokenSpelling(TU, p->tokens[ti]);
+            dprintf(" %s\n", clang_getCString(spelling));
+            clang_disposeString(spelling);
+        }
+        CXString c_spelling = clang_getCursorKindSpelling(rec->kind);
+        dprintf("analyze_decl_context for decl containing THIS (%s):\n", clang_getCString(c_spelling));
+        clang_disposeString(c_spelling);
+        for (int ti = 0; ti < rec->n_tokens; ti++) {
+            CXString spelling = clang_getTokenSpelling(TU, rec->tokens[ti]);
+            dprintf(" %s\n", clang_getCString(spelling));
+            clang_disposeString(spelling);
+        }
     }
-    CXString c_spelling = clang_getCursorKindSpelling(rec->kind);
-    dprintf("analyze_decl_context for decl containing THIS (%s):\n", clang_getCString(c_spelling));
-    clang_disposeString(c_spelling);
-    for (int ti = 0; ti < rec->n_tokens; ti++) {
-        CXString spelling = clang_getTokenSpelling(TU, rec->tokens[ti]);
-        dprintf(" %s\n", clang_getCString(spelling));
-        clang_disposeString(spelling);
-    }
-#endif
 
     // FIXME if parent.kind == CXCursor_CompoundStmt, simply go from here until
     // the end of that compound context.
@@ -1353,22 +1361,22 @@ static enum CXChildVisitResult callback(CXCursor cursor, CXCursor parent,
         rec_ptr = rec_ptr->parent;
     }
 
-#if defined(DEBUG) && (DEBUG==1)
-    CXString c_spelling = clang_getCursorKindSpelling(cursor.kind);
-    CXString pc_spelling = clang_getCursorKindSpelling(parent.kind);
-    dprintf("DERP: kind=%s [pkind=%s:child_cntr=%d] %s @ %d:%d in %s\n", clang_getCString(c_spelling), clang_getCString(pc_spelling),
-            rec.parent->child_cntr, clang_getCString(str), line, col,
-            clang_getCString(filename));
-    clang_disposeString(c_spelling);
-    clang_disposeString(pc_spelling);
-    for (i = 0; i < n_tokens; i++) {
-        CXString spelling = clang_getTokenSpelling(TU, tokens[i]);
-        CXSourceLocation l = clang_getTokenLocation(TU, tokens[i]);
-        clang_getSpellingLocation(l, &file, &line, &col, &off);
-        dprintf("token = '%s' @ %d:%d\n", clang_getCString(spelling), line, col);
-        clang_disposeString(spelling);
+    if (DEBUG_LEVEL > 1) {
+        CXString c_spelling = clang_getCursorKindSpelling(cursor.kind);
+        CXString pc_spelling = clang_getCursorKindSpelling(parent.kind);
+        dprintf("DERP: kind=%s [pkind=%s:child_cntr=%d] %s @ %d:%d in %s\n", clang_getCString(c_spelling), clang_getCString(pc_spelling),
+                rec.parent->child_cntr, clang_getCString(str), line, col,
+                clang_getCString(filename));
+        clang_disposeString(c_spelling);
+        clang_disposeString(pc_spelling);
+        for (i = 0; i < n_tokens; i++) {
+            CXString spelling = clang_getTokenSpelling(TU, tokens[i]);
+            CXSourceLocation l = clang_getTokenLocation(TU, tokens[i]);
+            clang_getSpellingLocation(l, &file, &line, &col, &off);
+            dprintf("token = '%s' @ %d:%d\n", clang_getCString(spelling), line, col);
+            clang_disposeString(spelling);
+        }
     }
-#endif
 
     switch (cursor.kind) {
     case CXCursor_TypedefDecl: {
@@ -1971,24 +1979,25 @@ static void indent_for_token(CXToken token, unsigned *lnum,
     unsigned *pos, unsigned *off)
 {
     unsigned l, p;
-#if defined(DEBUG) && (DEBUG==1)
-    CXString s = clang_getTokenSpelling(TU, token);
-    const char * str = clang_getCString(s);
     unsigned nspaces = 0;
-#endif
+    (void)nspaces;
+
+    if (DEBUG_LEVEL > 2) {
+        CXString s = clang_getTokenSpelling(TU, token);
+        const char * str = clang_getCString(s);
+    }
     get_token_position(token, &l, &p, off);
     for (; *lnum < l; (*lnum)++, *pos = 0)
         fprintf(out, "\n");
     for (; *pos < p; (*pos)++) {
         fprintf(out, " ");
-#if defined(DEBUG) && (DEBUG==1)
-        nspaces++;
-#endif
+        if (DEBUG_LEVEL > 2)
+            nspaces++;
     }
-#if defined(DEBUG) && (DEBUG==1)
-    printf("indent_for_token %s = %d (nspaces), %d:%d, *off=%d\n", str, nspaces, l, p, *off);
-    clang_disposeString(s);
-#endif
+    if (DEBUG_LEVEL > 2) {
+        printf("indent_for_token %s = %d (nspaces), %d:%d, *off=%d\n", str, nspaces, l, p, *off);
+        clang_disposeString(s);
+    }
 }
 
 #endif
@@ -2551,78 +2560,89 @@ static void cleanup(void)
 {
     unsigned n, m;
 
-#define DEBUG 0
-    dprintf("N compound literals: %d\n", n_comp_literal_lists);
-    for (n = 0; n < n_comp_literal_lists; n++) {
-        dprintf("[%d]: type=%d, struct=%d (%s), variable range=%u-%u\n",
-                n, comp_literal_lists[n].type,
-                comp_literal_lists[n].struct_decl_idx,
-                structs && comp_literal_lists[n].struct_decl_idx != (unsigned) -1 ?
-                    structs[comp_literal_lists[n].struct_decl_idx].name : "<none>",
-                comp_literal_lists[n].value_token.start,
-                comp_literal_lists[n].value_token.end);
+    if (DEBUG_LEVEL > 0) {
+        dprintf("N compound literals: %d\n", n_comp_literal_lists);
+        for (n = 0; n < n_comp_literal_lists; n++) {
+            dprintf("[%d]: type=%d, struct=%d (%s), variable range=%u-%u\n",
+                    n, comp_literal_lists[n].type,
+                    comp_literal_lists[n].struct_decl_idx,
+                    structs && comp_literal_lists[n].struct_decl_idx != (unsigned) -1 ?
+                        structs[comp_literal_lists[n].struct_decl_idx].name : "<none>",
+                    comp_literal_lists[n].value_token.start,
+                    comp_literal_lists[n].value_token.end);
+        }
     }
     free(comp_literal_lists);
 
-    dprintf("N array/struct variables: %d\n", n_struct_array_lists);
+    if (DEBUG_LEVEL > 0)
+        dprintf("N array/struct variables: %d\n", n_struct_array_lists);
     for (n = 0; n < n_struct_array_lists; n++) {
-        dprintf("[%d]: type=%d, struct=%d (%s), level=%d, n_entries=%d, range=%u-%u, depth=%u\n",
-                n, struct_array_lists[n].type,
-                struct_array_lists[n].struct_decl_idx,
-                structs && struct_array_lists[n].struct_decl_idx != (unsigned) -1 ?
-                    (structs[struct_array_lists[n].struct_decl_idx].name[0] ?
-                     structs[struct_array_lists[n].struct_decl_idx].name :
-                     "<anonymous>") : "<none>",
-                struct_array_lists[n].level,
-                struct_array_lists[n].n_entries,
-                struct_array_lists[n].value_offset.start,
-                struct_array_lists[n].value_offset.end,
-                struct_array_lists[n].array_depth);
-        for (m = 0; m < struct_array_lists[n].n_entries; m++) {
-            dprintf(" [%d]: idx=%d, range=%u-%u\n",
-                    m, struct_array_lists[n].entries[m].index,
-                    struct_array_lists[n].entries[m].value_offset.start,
-                    struct_array_lists[n].entries[m].value_offset.end);
+        if (DEBUG_LEVEL > 0) {
+            dprintf("[%d]: type=%d, struct=%d (%s), level=%d, n_entries=%d, range=%u-%u, depth=%u\n",
+                    n, struct_array_lists[n].type,
+                    struct_array_lists[n].struct_decl_idx,
+                    structs && struct_array_lists[n].struct_decl_idx != (unsigned) -1 ?
+                        (structs[struct_array_lists[n].struct_decl_idx].name[0] ?
+                         structs[struct_array_lists[n].struct_decl_idx].name :
+                         "<anonymous>") : "<none>",
+                    struct_array_lists[n].level,
+                    struct_array_lists[n].n_entries,
+                    struct_array_lists[n].value_offset.start,
+                    struct_array_lists[n].value_offset.end,
+                    struct_array_lists[n].array_depth);
+        }
+        if (DEBUG_LEVEL > 0) {
+            for (m = 0; m < struct_array_lists[n].n_entries; m++) {
+                dprintf(" [%d]: idx=%d, range=%u-%u\n",
+                        m, struct_array_lists[n].entries[m].index,
+                        struct_array_lists[n].entries[m].value_offset.start,
+                        struct_array_lists[n].entries[m].value_offset.end);
+            }
         }
         free(struct_array_lists[n].entries);
         free(struct_array_lists[n].name);
     }
     free(struct_array_lists);
 
-    dprintf("N extra scope ends: %d\n", n_end_scopes);
-    for (n = 0; n < n_end_scopes; n++) {
-        dprintf("[%d]: end=%u n_scopes=%u\n",
-                n, end_scopes[n].end, end_scopes[n].n_scopes);
+    if (DEBUG_LEVEL > 0) {
+        dprintf("N extra scope ends: %d\n", n_end_scopes);
+        for (n = 0; n < n_end_scopes; n++) {
+            dprintf("[%d]: end=%u n_scopes=%u\n",
+                    n, end_scopes[n].end, end_scopes[n].n_scopes);
+        }
     }
     free(end_scopes);
 
-    dprintf("N typedef entries: %d\n", n_typedefs);
+    if (DEBUG_LEVEL > 0)
+        dprintf("N typedef entries: %d\n", n_typedefs);
     for (n = 0; n < n_typedefs; n++) {
-        if (typedefs[n].struct_decl_idx != (unsigned) -1) {
-            if (structs[typedefs[n].struct_decl_idx].name[0]) {
-                dprintf("[%d]: %s (struct %s = %d)\n",
-                        n, typedefs[n].name,
-                        structs[typedefs[n].struct_decl_idx].name,
-                        typedefs[n].struct_decl_idx);
+        if (DEBUG_LEVEL > 0) {
+            if (typedefs[n].struct_decl_idx != (unsigned) -1) {
+                if (structs[typedefs[n].struct_decl_idx].name[0]) {
+                    dprintf("[%d]: %s (struct %s = %d)\n",
+                            n, typedefs[n].name,
+                            structs[typedefs[n].struct_decl_idx].name,
+                            typedefs[n].struct_decl_idx);
+                } else {
+                    dprintf("[%d]: %s (<anonymous> struct = %d)\n",
+                            n, typedefs[n].name,
+                            typedefs[n].struct_decl_idx);
+                }
+            } else if (typedefs[n].enum_decl_idx != (unsigned) -1) {
+                if (enums[typedefs[n].enum_decl_idx].name[0]) {
+                    dprintf("[%d]: %s (enum %s = %d)\n",
+                            n, typedefs[n].name,
+                            enums[typedefs[n].enum_decl_idx].name,
+                            typedefs[n].enum_decl_idx);
+                } else {
+                    dprintf("[%d]: %s (<anonymous> enum = %d)\n",
+                            n, typedefs[n].name,
+                            typedefs[n].enum_decl_idx);
+                }
             } else {
-                dprintf("[%d]: %s (<anonymous> struct = %d)\n",
-                        n, typedefs[n].name,
-                        typedefs[n].struct_decl_idx);
+                dprintf("[%d]: %s (%s)\n",
+                        n, typedefs[n].name, typedefs[n].proxy);
             }
-        } else if (typedefs[n].enum_decl_idx != (unsigned) -1) {
-            if (enums[typedefs[n].enum_decl_idx].name[0]) {
-                dprintf("[%d]: %s (enum %s = %d)\n",
-                        n, typedefs[n].name,
-                        enums[typedefs[n].enum_decl_idx].name,
-                        typedefs[n].enum_decl_idx);
-            } else {
-                dprintf("[%d]: %s (<anonymous> enum = %d)\n",
-                        n, typedefs[n].name,
-                        typedefs[n].enum_decl_idx);
-            }
-        } else {
-            dprintf("[%d]: %s (%s)\n",
-                    n, typedefs[n].name, typedefs[n].proxy);
         }
         if (typedefs[n].proxy)
             free(typedefs[n].proxy);
@@ -2631,20 +2651,25 @@ static void cleanup(void)
     free(typedefs);
 
     // free memory
-    dprintf("N struct entries: %d\n", n_structs);
+    if (DEBUG_LEVEL > 0)
+        dprintf("N struct entries: %d\n", n_structs);
     for (n = 0; n < n_structs; n++) {
-        if (structs[n].name[0]) {
-            dprintf("[%d]: %s (%p)\n", n, structs[n].name, &structs[n]);
-        } else {
-            dprintf("[%d]: <anonymous> (%p)\n", n, &structs[n]);
+        if (DEBUG_LEVEL > 0) {
+            if (structs[n].name[0]) {
+                dprintf("[%d]: %s (%p)\n", n, structs[n].name, &structs[n]);
+            } else {
+                dprintf("[%d]: <anonymous> (%p)\n", n, &structs[n]);
+            }
         }
         for (m = 0; m < structs[n].n_entries; m++) {
-            dprintf(" [%d]: %s (%s/%d/%d/%u)\n",
-                    m, structs[n].entries[m].name,
-                    structs[n].entries[m].type,
-                    structs[n].entries[m].n_ptrs,
-                    structs[n].entries[m].array_depth,
-                    structs[n].entries[m].struct_decl_idx);
+            if (DEBUG_LEVEL > 0) {
+                dprintf(" [%d]: %s (%s/%d/%d/%u)\n",
+                        m, structs[n].entries[m].name,
+                        structs[n].entries[m].type,
+                        structs[n].entries[m].n_ptrs,
+                        structs[n].entries[m].array_depth,
+                        structs[n].entries[m].struct_decl_idx);
+            }
             free(structs[n].entries[m].type);
             free(structs[n].entries[m].name);
         }
@@ -2653,24 +2678,28 @@ static void cleanup(void)
     }
     free(structs);
 
-    dprintf("N enum entries: %d\n", n_enums);
+    if (DEBUG_LEVEL > 0)
+        dprintf("N enum entries: %d\n", n_enums);
     for (n = 0; n < n_enums; n++) {
-        if (enums[n].name[0]) {
-            dprintf("[%d]: %s (%p)\n", n, enums[n].name, &enums[n]);
-        } else {
-            dprintf("[%d]: <anonymous> (%p)\n", n, &enums[n]);
+        if (DEBUG_LEVEL > 0) {
+            if (enums[n].name[0]) {
+                dprintf("[%d]: %s (%p)\n", n, enums[n].name, &enums[n]);
+            } else {
+                dprintf("[%d]: <anonymous> (%p)\n", n, &enums[n]);
+            }
         }
         for (m = 0; m < enums[n].n_entries; m++) {
-            dprintf(" [%d]: %s = %d\n", m,
-                    enums[n].entries[m].name,
-                    enums[n].entries[m].value);
+            if (DEBUG_LEVEL > 0) {
+                dprintf(" [%d]: %s = %d\n", m,
+                        enums[n].entries[m].name,
+                        enums[n].entries[m].value);
+            }
             free(enums[n].entries[m].name);
         }
         free(enums[n].entries);
         free(enums[n].name);
     }
     free(enums);
-#define DEBUG 0
 }
 
 int convert(const char *infile, const char *outfile, int ms_compat)
@@ -2725,6 +2754,13 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     int argc = __argc;
     char ** argv = __argv;
 #endif
+    const char *envvar = NULL;
+
+    envvar = getenv("C99_TO_C89_CONV_DEBUG_LEVEL");
+    if (envvar != NULL) {
+        DEBUG_LEVEL = strtoi(envvar);
+        envvar = NULL;
+    }
 
     int arg = 1;
     int ms_compat = 0;

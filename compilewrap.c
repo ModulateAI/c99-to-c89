@@ -1,6 +1,7 @@
 /*
  * C99-to-MSVC-compatible-C89 syntax converter
  * Copyright (c) 2012 Martin Storsjo <martin@martin.st>
+ * Copyright (c) 2018 Ray Donnelly, Anaconda Inc. <mingw.android@gmail.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,9 +30,13 @@
 #endif
 
 #define CONVERTER "c99conv"
-/*
-#define DEBUG 1
-*/
+
+/* 0 == no debugging */
+/* 1 == print command-lines to all called processes */
+static int DEBUG_LEVEL=0;
+static int DEBUG_SAVE_TEMPS=0;
+/* 0 == pass -E to the pre-processor, 1 == pass -EP */
+static int DEBUG_NO_LINE_DIRECTIVES=0;
 
 static char* create_cmdline(char **argv)
 {
@@ -329,33 +334,31 @@ char * read_file(const char * filename) {
 
 void write_file(const char * buf, size_t len, const char * filename)
 {
-#ifdef DEBUG
-        if (strlen(buf) != len) {
-                printf("Error, not saving all of file. strlen(buf)=%d, asked to save len=%d\n", strlen(buf), len);
-        }
-#endif
-        FILE * f = fopen(filename, "wb");
-        fwrite (buf, 1, len, f);
-        fclose(f);
+    if (strlen(buf) != len) {
+        printf("ERROR: Not saving all of file. strlen(buf)=%d, asked to save len=%d\n", strlen(buf), len);
+    }
+    FILE * f = fopen(filename, "wb");
+    fwrite (buf, 1, len, f);
+    fclose(f);
 }
 
 
 void print_argv(char * name, char ** argv, int argc)
 {
-#if defined(DEBUG)
     int i, j;
+
+    if (DEBUG_LEVEL == 0) {
+        return;
+    }
+    (void)name;
     for (i = 0; i < argc; i++) {
         if (!argv[i]) {
-            printf("%s[%d]=(NULL)\n (NULL)",name, i);
+            printf("\n");
         } else {
-            printf("%s[%d]=%s\n", name, i, argv[i]);
-            for (j=0; j < strlen(argv[i]); j++) {
-                printf(" %02x", (unsigned char)argv[i][j]);
-            }
+            printf("%s ", argv[i]);
         }
         printf("\n");
     }
-#endif
 }
 
 size_t remove_string(char * input, char * to_remove, size_t * initialsz)
@@ -392,10 +395,27 @@ int main(int argc, char *argv[])
     const char *source_file = NULL;
     const char *outname = NULL;
     char *response_file = NULL;
+    const char *envvar = NULL;
     char convert_options[20] = "";
 
     conv_tool = malloc(strlen(argv[0]) + strlen(CONVERTER) + 1);
     strcpy(conv_tool, argv[0]);
+
+    envvar = getenv("C99_TO_C89_WRAP_DEBUG_LEVEL");
+    if (envvar != NULL) {
+        DEBUG_LEVEL = strtoi(envvar);
+        envvar = NULL;
+    }
+    envvar = getenv("C99_TO_C89_WRAP_SAVE_TEMPS");
+    if (envvar != NULL) {
+        SAVE_TEMPS = strtoi(envvar);
+        envvar = NULL;
+    }
+    envvar = getenv("C99_TO_C89_WRAP_NO_LINE_DIRECTIVES");
+    if (envvar != NULL) {
+        DEBUG_NO_LINE_DIRECTIVES = strtoi(envvar);
+        envvar = NULL;
+    }
 
     ptr = strrchr(conv_tool, '\\');
     if (!ptr)
@@ -408,7 +428,7 @@ int main(int argc, char *argv[])
     strcat(conv_tool, CONVERTER);
 
     for (; i < argc; i++) {
-        if (!strcmp(argv[i], "-keep")) {
+        if (!strcmp(argv[i], "-keep") || DEBUG_SAVE_TEMPS==1) {
             keep = 1;
         } else if (!strcmp(argv[i], "-noconv")) {
             noconv = 1;
@@ -530,7 +550,10 @@ int main(int argc, char *argv[])
             pass_argv[pass_argc++] = argv[i];
             cc_argv[cc_argc++]     = argv[i++];
 
-            cpp_argv[cpp_argc++] = "-E";
+            if (DEBUG_NO_LINE_DIRECTIVES == 0)
+                cpp_argv[cpp_argc++] = "-E";
+            else
+                cpp_argv[cpp_argc++] = "-EP";
 
             if (!noconv)
                 flag_compile = 1;
@@ -575,17 +598,15 @@ int main(int argc, char *argv[])
     cc_argv[cc_argc++]     = NULL;
     pass_argv[pass_argc++] = NULL;
 
-    print_argv("cpp_argv", cpp_argv, cpp_argc);
-    print_argv("cc_argv", cc_argv, cc_argc);
-    print_argv("pass_argv", pass_argv, pass_argc);
-
     if (!flag_compile || !source_file || !outname) {
+        print_argv("pass_argv", pass_argv, pass_argc);
         /* Doesn't seem like we should be invoked, just call the parameters as such */
         exit_code = exec_argv_out(pass_argv, NULL);
 
         goto exit;
     }
 
+    print_argv("cpp_argv", cpp_argv, cpp_argc);
     exit_code = exec_argv_out(cpp_argv, temp_file_1);
     if (exit_code) {
         if (!keep)
@@ -622,6 +643,7 @@ int main(int argc, char *argv[])
     conv_argv[4] = NULL;
 
     exit_code = exec_argv_out(conv_argv, NULL);
+    print_argv("conv_argv", cc_argv, cc_argc);
     if (exit_code) {
         if (!keep) {
             unlink(temp_file_1);
@@ -634,6 +656,7 @@ int main(int argc, char *argv[])
     if (!keep)
         unlink(temp_file_1);
 
+    print_argv("cc_argv", cc_argv, cc_argc);
     exit_code = exec_argv_out(cc_argv, NULL);
 
     if (!keep)
