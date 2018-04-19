@@ -36,8 +36,11 @@ pushd ${PREFIX}/Library/bin
   echo "@echo off"                                          > c99-to-c89-cmake-nmake-wrap.bat
   echo "echo cd %CD%"                                      >> c99-to-c89-cmake-nmake-wrap.bat
   echo "setlocal EnableExtensions EnableDelayedExpansion"  >> c99-to-c89-cmake-nmake-wrap.bat
-  echo "set respo=%1"                                      >> c99-to-c89-cmake-nmake-wrap.bat
-  echo "echo %~dp0c99wrap.exe -keep cl"                    >> c99-to-c89-cmake-nmake-wrap.bat
-  echo "more !respo:~1!"                                   >> c99-to-c89-cmake-nmake-wrap.bat
+  echo "if \"%VERBOSE_CM%\"==\"1\" ("                      >> c99-to-c89-cmake-nmake-wrap.bat
+  echo "  set C99_TO_C89_WRAP_DEBUG_LEVEL=1"               >> c99-to-c89-cmake-nmake-wrap.bat
+  echo "  set C99_TO_C89_WRAP_SAVE_TEMPS=1"                >> c99-to-c89-cmake-nmake-wrap.bat
+  echo "  set C99_TO_C89_WRAP_NO_LINE_DIRECTIVES=1"        >> c99-to-c89-cmake-nmake-wrap.bat
+  echo "  set C99_TO_C89_CONV_DEBUG_LEVEL=1"               >> c99-to-c89-cmake-nmake-wrap.bat
+  echo ")"                                                 >> c99-to-c89-cmake-nmake-wrap.bat
   echo "%~dp0c99wrap.exe -keep cl %*"                      >> c99-to-c89-cmake-nmake-wrap.bat
 popd
