@@ -2758,7 +2758,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 
     envvar = getenv("C99_TO_C89_CONV_DEBUG_LEVEL");
     if (envvar != NULL) {
-        DEBUG_LEVEL = strtoi(envvar);
+        DEBUG_LEVEL = (int)strtoll(envvar, NULL, 10);
         envvar = NULL;
     }
 

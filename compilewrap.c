@@ -29,14 +29,18 @@
 #include <wordexp.h>
 #endif
 
+#ifdef _MSC_VER
+#define strtoll _strtoi64
+#endif
+
 #define CONVERTER "c99conv"
 
 /* 0 == no debugging */
 /* 1 == print command-lines to all called processes */
-static int DEBUG_LEVEL=0;
-static int DEBUG_SAVE_TEMPS=0;
+static int DEBUG_LEVEL = 0;
+static int SAVE_TEMPS = 0;
 /* 0 == pass -E to the pre-processor, 1 == pass -EP */
-static int DEBUG_NO_LINE_DIRECTIVES=0;
+static int DEBUG_NO_LINE_DIRECTIVES = 0;
 
 static char* create_cmdline(char **argv)
 {
@@ -335,7 +339,7 @@ char * read_file(const char * filename) {
 void write_file(const char * buf, size_t len, const char * filename)
 {
     if (strlen(buf) != len) {
-        printf("ERROR: Not saving all of file. strlen(buf)=%d, asked to save len=%d\n", strlen(buf), len);
+        printf("ERROR: Not saving all of file. strlen(buf)=%zd, asked to save len=%zd\n", strlen(buf), len);
     }
     FILE * f = fopen(filename, "wb");
     fwrite (buf, 1, len, f);
@@ -343,11 +347,11 @@ void write_file(const char * buf, size_t len, const char * filename)
 }
 
 
-void print_argv(char * name, char ** argv, int argc)
+void print_argv(char * name, char ** argv, int argc, int force_print)
 {
     int i, j;
 
-    if (DEBUG_LEVEL == 0) {
+    if (DEBUG_LEVEL == 0 && force_print == 0) {
         return;
     }
     (void)name;
@@ -403,17 +407,17 @@ int main(int argc, char *argv[])
 
     envvar = getenv("C99_TO_C89_WRAP_DEBUG_LEVEL");
     if (envvar != NULL) {
-        DEBUG_LEVEL = strtoi(envvar);
+        DEBUG_LEVEL = strtoll(envvar, NULL, 10);
         envvar = NULL;
     }
     envvar = getenv("C99_TO_C89_WRAP_SAVE_TEMPS");
     if (envvar != NULL) {
-        SAVE_TEMPS = strtoi(envvar);
+        SAVE_TEMPS = strtoll(envvar, NULL, 10);
         envvar = NULL;
     }
     envvar = getenv("C99_TO_C89_WRAP_NO_LINE_DIRECTIVES");
     if (envvar != NULL) {
-        DEBUG_NO_LINE_DIRECTIVES = strtoi(envvar);
+        DEBUG_NO_LINE_DIRECTIVES = strtoll(envvar, NULL, 10);
         envvar = NULL;
     }
 
@@ -428,7 +432,7 @@ int main(int argc, char *argv[])
     strcat(conv_tool, CONVERTER);
 
     for (; i < argc; i++) {
-        if (!strcmp(argv[i], "-keep") || DEBUG_SAVE_TEMPS==1) {
+        if (!strcmp(argv[i], "-keep") || SAVE_TEMPS!=0) {
             keep = 1;
         } else if (!strcmp(argv[i], "-noconv")) {
             noconv = 1;
@@ -448,18 +452,20 @@ int main(int argc, char *argv[])
     } else if (i < argc && !strncmp(argv[i], "icl", 3) && (argv[i][3] == '.' || argv[i][3] == '\0'))
         msvc = 1; /* for command line compatibility */
 
-    /* are we using a response file? If so reform argv and argc from it */
+    /* are we using a response file? If so reform argv and argc from it. We print the new command-line always
+       as this is one of the most difficult aspects of dealing with CMake on Windows; you are basically forced
+       to use procmon to see the flags passed to the compiler and linker. */
     if (argv[argc-1][0] == '@') {
         response_file = read_file(&(argv[argc-1][1]));
         if (response_file) {
             char ** argv_temp = split_commandline(response_file, &argc);
-            print_argv("argv_temp", argv_temp, argc);
+            print_argv("argv_temp", argv_temp, argc, 0);
             char *cl_or_icl = argv[i];
             argv = malloc((argc+1) * sizeof(char*));
             argv[0] = cl_or_icl;
             memcpy(&argv[1], argv_temp, argc * sizeof(char*));
             argc++;
-            print_argv("response_argv", argv, argc);
+            print_argv("response_argv", argv, argc, 1);
             free(response_file);
             i = 0;
         }
@@ -599,14 +605,14 @@ int main(int argc, char *argv[])
     pass_argv[pass_argc++] = NULL;
 
     if (!flag_compile || !source_file || !outname) {
-        print_argv("pass_argv", pass_argv, pass_argc);
+        print_argv("pass_argv", pass_argv, pass_argc, 0);
         /* Doesn't seem like we should be invoked, just call the parameters as such */
         exit_code = exec_argv_out(pass_argv, NULL);
 
         goto exit;
     }
 
-    print_argv("cpp_argv", cpp_argv, cpp_argc);
+    print_argv("cpp_argv", cpp_argv, cpp_argc, 0);
     exit_code = exec_argv_out(cpp_argv, temp_file_1);
     if (exit_code) {
         if (!keep)
@@ -643,7 +649,7 @@ int main(int argc, char *argv[])
     conv_argv[4] = NULL;
 
     exit_code = exec_argv_out(conv_argv, NULL);
-    print_argv("conv_argv", cc_argv, cc_argc);
+    print_argv("conv_argv", cc_argv, cc_argc, 0);
     if (exit_code) {
         if (!keep) {
             unlink(temp_file_1);
@@ -656,7 +662,7 @@ int main(int argc, char *argv[])
     if (!keep)
         unlink(temp_file_1);
 
-    print_argv("cc_argv", cc_argv, cc_argc);
+    print_argv("cc_argv", cc_argv, cc_argc, 0);
     exit_code = exec_argv_out(cc_argv, NULL);
 
     if (!keep)
