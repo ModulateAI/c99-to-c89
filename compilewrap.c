@@ -38,7 +38,6 @@
 /* 0 == no debugging */
 /* 1 == print command-lines to all called processes */
 static int DEBUG_LEVEL = 0;
-static int SAVE_TEMPS = 0;
 /* 0 == pass -E to the pre-processor, 1 == pass -EP */
 static int DEBUG_NO_LINE_DIRECTIVES = 0;
 
@@ -356,12 +355,9 @@ void print_argv(char * name, char ** argv, int argc, int force_print)
     }
     (void)name;
     for (i = 0; i < argc; i++) {
-        if (!argv[i]) {
-            printf("\n");
-        } else {
+        if (argv[i]) {
             printf("%s ", argv[i]);
         }
-        printf("\n");
     }
 }
 
@@ -412,7 +408,7 @@ int main(int argc, char *argv[])
     }
     envvar = getenv("C99_TO_C89_WRAP_SAVE_TEMPS");
     if (envvar != NULL) {
-        SAVE_TEMPS = strtoll(envvar, NULL, 10);
+        keep = strtoll(envvar, NULL, 10);
         envvar = NULL;
     }
     envvar = getenv("C99_TO_C89_WRAP_NO_LINE_DIRECTIVES");
@@ -432,7 +428,7 @@ int main(int argc, char *argv[])
     strcat(conv_tool, CONVERTER);
 
     for (; i < argc; i++) {
-        if (!strcmp(argv[i], "-keep") || SAVE_TEMPS!=0) {
+        if (!strcmp(argv[i], "-keep")) {
             keep = 1;
         } else if (!strcmp(argv[i], "-noconv")) {
             noconv = 1;

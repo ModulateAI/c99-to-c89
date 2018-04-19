@@ -1137,7 +1137,7 @@ static void analyze_compound_literal_lineage(CompoundLiteralList *l,
 {
     CursorRecursion *p = rec, *p2;
 
-    if (DEBUG_LEVEL > 0) {
+    if (DEBUG_LEVEL > 1) {
         dprintf("CL lineage: ");
         do {
             dprintf("%d[%d], ", p->kind, p->child_cntr);
@@ -1175,7 +1175,7 @@ static void analyze_decl_context(CompoundLiteralList *l,
 {
     CursorRecursion *p = rec->parent;
 
-    if (DEBUG_LEVEL > 0) {
+    if (DEBUG_LEVEL > 1) {
         CXString pc_spelling = clang_getCursorKindSpelling(p->kind);
         dprintf("analyze_decl_context for decl containing PARENT (%s):\n", clang_getCString(pc_spelling));
         clang_disposeString(pc_spelling);
@@ -2560,7 +2560,7 @@ static void cleanup(void)
 {
     unsigned n, m;
 
-    if (DEBUG_LEVEL > 0) {
+    if (DEBUG_LEVEL > 1) {
         dprintf("N compound literals: %d\n", n_comp_literal_lists);
         for (n = 0; n < n_comp_literal_lists; n++) {
             dprintf("[%d]: type=%d, struct=%d (%s), variable range=%u-%u\n",
@@ -2574,10 +2574,10 @@ static void cleanup(void)
     }
     free(comp_literal_lists);
 
-    if (DEBUG_LEVEL > 0)
+    if (DEBUG_LEVEL > 1)
         dprintf("N array/struct variables: %d\n", n_struct_array_lists);
     for (n = 0; n < n_struct_array_lists; n++) {
-        if (DEBUG_LEVEL > 0) {
+        if (DEBUG_LEVEL > 1) {
             dprintf("[%d]: type=%d, struct=%d (%s), level=%d, n_entries=%d, range=%u-%u, depth=%u\n",
                     n, struct_array_lists[n].type,
                     struct_array_lists[n].struct_decl_idx,
@@ -2591,7 +2591,7 @@ static void cleanup(void)
                     struct_array_lists[n].value_offset.end,
                     struct_array_lists[n].array_depth);
         }
-        if (DEBUG_LEVEL > 0) {
+        if (DEBUG_LEVEL > 1) {
             for (m = 0; m < struct_array_lists[n].n_entries; m++) {
                 dprintf(" [%d]: idx=%d, range=%u-%u\n",
                         m, struct_array_lists[n].entries[m].index,
@@ -2604,7 +2604,7 @@ static void cleanup(void)
     }
     free(struct_array_lists);
 
-    if (DEBUG_LEVEL > 0) {
+    if (DEBUG_LEVEL > 1) {
         dprintf("N extra scope ends: %d\n", n_end_scopes);
         for (n = 0; n < n_end_scopes; n++) {
             dprintf("[%d]: end=%u n_scopes=%u\n",
@@ -2613,10 +2613,10 @@ static void cleanup(void)
     }
     free(end_scopes);
 
-    if (DEBUG_LEVEL > 0)
+    if (DEBUG_LEVEL > 1)
         dprintf("N typedef entries: %d\n", n_typedefs);
     for (n = 0; n < n_typedefs; n++) {
-        if (DEBUG_LEVEL > 0) {
+        if (DEBUG_LEVEL > 1) {
             if (typedefs[n].struct_decl_idx != (unsigned) -1) {
                 if (structs[typedefs[n].struct_decl_idx].name[0]) {
                     dprintf("[%d]: %s (struct %s = %d)\n",
@@ -2651,10 +2651,10 @@ static void cleanup(void)
     free(typedefs);
 
     // free memory
-    if (DEBUG_LEVEL > 0)
+    if (DEBUG_LEVEL > 1)
         dprintf("N struct entries: %d\n", n_structs);
     for (n = 0; n < n_structs; n++) {
-        if (DEBUG_LEVEL > 0) {
+        if (DEBUG_LEVEL > 1) {
             if (structs[n].name[0]) {
                 dprintf("[%d]: %s (%p)\n", n, structs[n].name, &structs[n]);
             } else {
@@ -2662,7 +2662,7 @@ static void cleanup(void)
             }
         }
         for (m = 0; m < structs[n].n_entries; m++) {
-            if (DEBUG_LEVEL > 0) {
+            if (DEBUG_LEVEL > 1) {
                 dprintf(" [%d]: %s (%s/%d/%d/%u)\n",
                         m, structs[n].entries[m].name,
                         structs[n].entries[m].type,
@@ -2678,10 +2678,10 @@ static void cleanup(void)
     }
     free(structs);
 
-    if (DEBUG_LEVEL > 0)
+    if (DEBUG_LEVEL > 1)
         dprintf("N enum entries: %d\n", n_enums);
     for (n = 0; n < n_enums; n++) {
-        if (DEBUG_LEVEL > 0) {
+        if (DEBUG_LEVEL > 1) {
             if (enums[n].name[0]) {
                 dprintf("[%d]: %s (%p)\n", n, enums[n].name, &enums[n]);
             } else {
@@ -2689,7 +2689,7 @@ static void cleanup(void)
             }
         }
         for (m = 0; m < enums[n].n_entries; m++) {
-            if (DEBUG_LEVEL > 0) {
+            if (DEBUG_LEVEL > 1) {
                 dprintf(" [%d]: %s = %d\n", m,
                         enums[n].entries[m].name,
                         enums[n].entries[m].value);
