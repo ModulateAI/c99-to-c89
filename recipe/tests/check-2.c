@@ -1,25 +1,8 @@
-lzma_check_is_supported(lzma_check type)
+int lzma_check_is_supported(unsigned int type)
 {
-	if ((unsigned int)(type) > 15)
+	if (type > 1)
 		return 0;
 
-	static const lzma_bool available_checks[15 + 1] = {
-		1,   
-		1,
-		0,  
-		0,  
-		1,
-		0,  
-		0,  
-		0,  
-		0,  
-		0,  
-		1,
-		0,  
-		0,  
-		0,  
-		0,  
-		0,  
-	};
-	return available_checks[(unsigned int)(type)];
+	static const unsigned int available_checks[2] = { 1, 0 };
+	return available_checks[type];
 }

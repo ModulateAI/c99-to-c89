@@ -1195,8 +1195,8 @@ static void analyze_decl_context(CompoundLiteralList *l,
         // a NullStmt we end up emiting incorrect spaces.
     if (p->kind == CXCursor_CompoundStmt) {
         l->type = TYPE_NEW_CONTEXT;
-        l->context.start = get_token_offset(p->tokens[0]);
-                l->cast_token.start = l->context.start; // get_token_offset(rec->tokens[0]);
+        l->context.start = get_token_offset(rec->tokens[0]);
+        l->cast_token.start = l->context.start;
         l->context.end = get_token_offset(p->tokens[p->n_tokens - 1]);
     } else if (p->kind == CXCursor_ForStmt && rec->parent->child_cntr == 1) {
         l->type = TYPE_LOOP_CONTEXT;
