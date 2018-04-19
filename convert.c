@@ -27,8 +27,8 @@ cd C:\c99-to-c89-build\work
 cl.exe -MD -GL -I%CONDA_PREFIX%\Library\include  -nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -IC:\c99-to-c89-build\work\clang\include -Foconvert.o -c C:\Users\builder\conda\aggregate\c99-to-c89\convert.c
 cl.exe -Fec99conv.exe convert.o -nologo -Z7 C:\c99-to-c89-build\work\clang\lib\c99-to-c89-libclang.lib
 REM And to debug it (should work provided the test phase fails):
-copy C:\c99-to-c89-build\_test_env\Library\bin\c99-to-c89-libclang.dll C:\c99-to-c89-build\work
-C:\c99-to-c89-build\work\c99conv.exe -ms C:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\stream_encoder.c.obj_preprocessed.c C:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\stream_encoder.c.obj_preprocessed.c.out
+copy /y C:\c99-to-c89-build\_test_env\Library\bin\c99-to-c89-libclang.dll C:\c99-to-c89-build\work
+C:\c99-to-c89-build\work\c99wrap.exe -keep cl /FoC:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\check-2.c.obj -c C:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\check-2.c
 "C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe" C:\c99-to-c89-build\work\c99conv.exe
 */
 
@@ -1925,9 +1925,50 @@ static void get_token_position(CXToken token, unsigned *lnum,
     (*pos)--;
 }
 
-/*
+#define NEW_INDENT
+
+#if defined(NEW_INDENT)
+
+/* The old implementation of this seems to be badly broken for the case of rewriting tokens when
+others follow it on the same line. No attempt was made to adjust the positions of the subsequent
+tokens meaning, in the case of adding more characters, they would always be behind *pos and so no
+from the previous token to this one next. It might be better if this project manipulated the AST
+spaces would ever be emitted. Instead we now concern ourselves with preserving the relative spacing
+instead? */
+
 static void indent_for_token(CXToken token, unsigned *lnum,
-                             unsigned *pos, unsigned *off)
+    unsigned *pos, unsigned *off)
+{
+    static int prev_l = -1;
+    static int prev_p_end = -1;
+    unsigned l, p;
+    CXSourceRange range = clang_getTokenExtent(TU, token);
+
+    get_token_position(token, &l, &p, off);
+    if (prev_l != -1) {
+        for (; prev_l < l; prev_l++, prev_p_end = -1, *pos = 0, (*lnum)++)
+            fprintf(out, "\n");
+    } else {
+        for (; *lnum < l; (*lnum)++, *pos = 0)
+            fprintf(out, "\n");
+    }
+    if (prev_p_end != -1) {
+        for (; prev_p_end < p; prev_p_end++, (*pos)++)
+            fprintf(out, " ");
+    } else {
+        for (; *pos < p; (*pos)++)
+            fprintf(out, " ");
+    }
+    prev_l = l;
+    prev_p_end = p + range.end_int_data - range.begin_int_data;
+
+    return;
+}
+
+#else
+
+static void indent_for_token(CXToken token, unsigned *lnum,
+    unsigned *pos, unsigned *off)
 {
     unsigned l, p;
 #if defined(DEBUG) && (DEBUG==1)
@@ -1940,50 +1981,17 @@ static void indent_for_token(CXToken token, unsigned *lnum,
         fprintf(out, "\n");
     for (; *pos < p; (*pos)++) {
         fprintf(out, " ");
+#if defined(DEBUG) && (DEBUG==1)
         nspaces++;
+#endif
     }
 #if defined(DEBUG) && (DEBUG==1)
     printf("indent_for_token %s = %d (nspaces), %d:%d, *off=%d\n", str, nspaces, l, p, *off);
     clang_disposeString(s);
 #endif
 }
-*/
 
-/* The old implementation of this seems to be badly broken for the case of rewriting tokens when
-   others follow it on the same line. No attempt was made to adjust the positions of the subsequent
-   tokens meaning, in the case of adding more characters, they would always be behind *pos and so no
-   spaces would ever be emitted. Instead we now concern ourselves with the relative spacing from one
-   token to the next. It might be better if this project manipulated the AST instead. */
-static void indent_for_token(CXToken token, unsigned *lnum,
-                             unsigned *pos, unsigned *off)
-{
-    static int prev_l = -1;
-    static int prev_p_end = -1;
-    unsigned l, p;
-    CXSourceRange range = clang_getTokenExtent(TU, token);
-
-    get_token_position(token, &l, &p, off);
-    if (prev_l != -1) {
-        for (; prev_l < l; prev_l++, prev_p_end = -1, *pos = 0, (*lnum)++)
-            fprintf(out, "\n");
-    }
-    else {
-        for (; *lnum < l; (*lnum)++, *pos = 0)
-            fprintf(out, "\n");
-    }
-    if (prev_p_end != -1) {
-         for (; prev_p_end < p; prev_p_end++, (*pos)++)
-             fprintf(out, " ");
-        }
-    else {
-        for (; *pos < p; (*pos)++)
-            fprintf(out, " ");
-    }
-    prev_l = l;
-    prev_p_end = p + range.end_int_data - range.begin_int_data;
-
-    return;
-}
+#endif
 
 static void print_literal_text(const char *str, unsigned *lnum,
                                unsigned *pos)
