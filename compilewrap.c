@@ -635,7 +635,7 @@ int main(int argc, char *argv[])
     static char pragma_once[] = { "#pragma once\r\n" };
     size_t initialsz;
     size_t finalsz1 = remove_string(preproc_out, line_cont, &initialsz);
-    size_t finalsz2 = remove_string(pragma_once, line_cont, &finalsz1);
+    size_t finalsz2 = remove_string(preproc_out, pragma_once, &finalsz1);
     if (finalsz2 != initialsz) {
         write_file(preproc_out, finalsz2 - 1, temp_file_1);
     }
