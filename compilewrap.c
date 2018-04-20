@@ -373,7 +373,7 @@ size_t remove_string(char * input, char * to_remove, size_t * initialsz)
         size_t gap = cursor - old_cursor;
         remain -= gap + to_remove_sz;
         finalsz -= to_remove_sz;
-        memmove(cursor, cursor + 3, remain);
+        memmove(cursor, cursor + to_remove_sz, remain);
         old_cursor = cursor;
         cursor = strstr(cursor, to_remove);
     }
