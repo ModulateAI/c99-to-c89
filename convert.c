@@ -22,13 +22,15 @@
 REM To build this:
 C:\Users\builder\m64\Scripts\activate.bat base
 conda-build C:\Users\builder\conda\aggregate\c99-to-c89 --croot C:\c99-to-c89-build --no-build-id -m C:\Users\builder\conda\aggregate\conda_build_config.yaml -c msys2 -c https://repo.continuum.io/pkgs/main
+REM Make your build fail otherwise conda-build will delete this!
 C:\Users\builder\m64\Scripts\activate.bat C:\c99-to-c89-build\_build_env
 rmdir C:\c99-to-c89-build\work
 move C:\c99-to-c89-build\work_* C:\c99-to-c89-build\work
 pushd C:\c99-to-c89-build\work
-cl.exe -MD -GL -I%CONDA_PREFIX%\Library\include  -nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -IC:\c99-to-c89-build\work\clang\include -Foconvert.o -c C:\Users\builder\conda\aggregate\c99-to-c89\convert.c
+cl.exe -MD -GL -IC:\c99-to-c89-build\_build_env/Library/include -nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -IC:\c99-to-c89-build\work\clang\include -Foconvert.o -c C:\Users\builder\conda\aggregate\c99-to-c89\convert.c
 cl.exe -Fec99conv.exe convert.o -nologo -Z7 C:\c99-to-c89-build\work\clang\lib\c99-to-c89-libclang.lib
-cl.exe  -MD -GL -IC:\c99-to-c89-build\_build_env/Library/include  -nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -I/c/c99-to-c89-build/work/clang/include -Focompilewrap.o -c compilewrap.c
+cl.exe  -MD -GL -MD -GL -IC:\c99-to-c89-build\_build_env/Library/include  -nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -I/c/c99-to-c89-build/work/clang/include -Focompilewrap.o -c compilewrap.c
+cl.exe  -MD -GL -IC:\c99-to-c89-build\_build_env/Library/include -nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -IC:\c99-to-c89-build\work\clang\include -Focompilewrap.o -c C:\Users\builder\conda\aggregate\c99-to-c89\compilewrap.c
 cl.exe -Fec99wrap.exe compilewrap.o -nologo -Z7 C:\c99-to-c89-build\work\clang\lib\c99-to-c89-libclang.lib Shell32.lib
 popd
 REM And to debug it (should work provided the test phase fails):
@@ -492,7 +494,7 @@ static void register_struct(const char *str, CXCursor cursor,
     decl->entries = NULL;
     decl->is_union = is_union;
 
-    clang_visitChildren(cursor, fill_struct_members, (void *) (n_structs - 1));
+    clang_visitChildren(cursor, fill_struct_members, (void *)(uintptr_t)(n_structs - 1));
 }
 
 static int arithmetic_expression(int val1, const char *expr, int val2)
@@ -2770,9 +2772,11 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
         envvar = NULL;
     }
 
+    dprintf("%s ", argv[0]);
     int arg = 1;
     int ms_compat = 0;
     while (arg < argc) {
+        dprintf("%s ", argv[arg]);
         if (!strcmp(argv[arg], "-ms")) {
             ms_compat = 1;
         } else {
