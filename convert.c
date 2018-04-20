@@ -20,17 +20,25 @@
 
 /*
 REM To build this:
+C:\Users\builder\m64\Scripts\activate.bat base
 conda-build C:\Users\builder\conda\aggregate\c99-to-c89 --croot C:\c99-to-c89-build --no-build-id -m C:\Users\builder\conda\aggregate\conda_build_config.yaml -c msys2 -c https://repo.continuum.io/pkgs/main
 C:\Users\builder\m64\Scripts\activate.bat C:\c99-to-c89-build\_build_env
 rmdir C:\c99-to-c89-build\work
 move C:\c99-to-c89-build\work_* C:\c99-to-c89-build\work
-cd C:\c99-to-c89-build\work
+pushd C:\c99-to-c89-build\work
 cl.exe -MD -GL -I%CONDA_PREFIX%\Library\include  -nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -IC:\c99-to-c89-build\work\clang\include -Foconvert.o -c C:\Users\builder\conda\aggregate\c99-to-c89\convert.c
 cl.exe -Fec99conv.exe convert.o -nologo -Z7 C:\c99-to-c89-build\work\clang\lib\c99-to-c89-libclang.lib
+cl.exe  -MD -GL -IC:\c99-to-c89-build\_build_env/Library/include  -nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -I/c/c99-to-c89-build/work/clang/include -Focompilewrap.o -c compilewrap.c
+cl.exe -Fec99wrap.exe compilewrap.o -nologo -Z7 C:\c99-to-c89-build\work\clang\lib\c99-to-c89-libclang.lib Shell32.lib
+popd
 REM And to debug it (should work provided the test phase fails):
 copy /y C:\c99-to-c89-build\_test_env\Library\bin\c99-to-c89-libclang.dll C:\c99-to-c89-build\work
+REM .. if we did not get that far:
+copy /y C:\c99-to-c89-build\work\clang\bin\c99-to-c89-libclang.dll C:\c99-to-c89-build\work
+REM C:\c99-to-c89-build\work\c99conv.exe -ms C:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\stream_encoder.c.obj_preprocessed.c C:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\stream_encoder.c.converted.c
+REM "C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe" C:\c99-to-c89-build\work\c99conv.exe
 C:\c99-to-c89-build\work\c99wrap.exe -keep cl /FoC:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\check-2.c.obj -c C:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\check-2.c
-"C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe" C:\c99-to-c89-build\work\c99conv.exe
+"C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe" C:\c99-to-c89-build\work\c99wrap.exe
 */
 
 #include <assert.h>

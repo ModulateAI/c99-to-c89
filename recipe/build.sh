@@ -21,17 +21,17 @@ if [[ ${vc} == 9 ]]; then
 fi
 lib /def:c99-to-c89-libclang.dll.def /out:$(cygpath -m ${CLANGDIR}/lib/c99-to-c89-libclang.lib) /machine:${MS_MACH}
 
-CFLAGS="${CFLAGS} -I${BUILD_PREFIX}/Library/include ${SNPRINTF}" CLANGDIR=${PWD}/clang make -f Makefile.w32 -n
-CFLAGS="${CFLAGS} -I${BUILD_PREFIX}/Library/include ${SNPRINTF}" CLANGDIR=${PWD}/clang make -f Makefile.w32
-
+if ! CFLAGS="${CFLAGS} -I${BUILD_PREFIX}/Library/include ${SNPRINTF}" CLANGDIR=${PWD}/clang make -f Makefile.w32; then
+  echo "ERROR :: Build failed"
+  exit 1
+fi
 cp c99*.exe ${CLANGDIR}/bin/c99-to-c89-libclang.dll ${PREFIX}/Library/bin
 
 # This file should be passed to the CMake command-line as:
 # -DCMAKE_C_COMPILER="c99-to-c89-cmake-nmake-wrap.bat"
-# I have given it a very specific name as I do not know that it will work for any other CMake
-# generators .. it assumes the only argument is a response file beginning with @ for example.
-# It also prints out the contents of the response file as not being able to see command-lines
-# passed to the compiler drives me up the wall.
+# I have given it a very specific name as I do not know that it will work for any other CMake.
+# We set the some debug flags so that we see the contents of the @response files and so that
+# temporaries are retained.
 pushd ${PREFIX}/Library/bin
   echo "@echo off"                                          > c99-to-c89-cmake-nmake-wrap.bat
   echo "echo cd %CD%"                                      >> c99-to-c89-cmake-nmake-wrap.bat

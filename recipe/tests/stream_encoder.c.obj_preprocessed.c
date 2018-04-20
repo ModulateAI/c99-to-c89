@@ -1,1 +1,1 @@
-a() { if (a=1) { printf("hello"); int t; } else if (a==2) { ; } }
+a() { int b = 1;  if (b == 1) { a(); int t; } else if (b == 2) { ; } }
