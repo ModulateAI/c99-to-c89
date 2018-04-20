@@ -653,7 +653,7 @@ int main(int argc, char *argv[])
     conv_argv[4] = NULL;
 
     exit_code = exec_argv_out(conv_argv, NULL);
-    print_argv("conv_argv", cc_argv, cc_argc, 0);
+    print_argv("conv_argv", conv_argv, 3, 0);
     if (exit_code) {
         if (!keep) {
             unlink(temp_file_1);
