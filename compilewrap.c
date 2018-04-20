@@ -359,6 +359,8 @@ void print_argv(char * name, char ** argv, int argc, int force_print)
             printf("%s ", argv[i]);
         }
     }
+    if (i)
+        printf("\n");
 }
 
 size_t remove_string(char * input, char * to_remove, size_t * initialsz)
@@ -454,14 +456,18 @@ int main(int argc, char *argv[])
     if (argv[argc-1][0] == '@') {
         response_file = read_file(&(argv[argc-1][1]));
         if (response_file) {
+            if (DEBUG_LEVEL > 1) {
+                dprintf("Response file contents:\n\%s\n", response_file);
+            }
             char ** argv_temp = split_commandline(response_file, &argc);
-            print_argv("argv_temp", argv_temp, argc, 0);
             char *cl_or_icl = argv[i];
             argv = malloc((argc+1) * sizeof(char*));
             argv[0] = cl_or_icl;
             memcpy(&argv[1], argv_temp, argc * sizeof(char*));
             argc++;
-            print_argv("response_argv", argv, argc, 1);
+            if (DEBUG_LEVEL > 1) {
+                print_argv("response_argv", argv, argc, 0);
+            }
             free(response_file);
             i = 0;
         }
