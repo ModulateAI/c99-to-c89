@@ -465,9 +465,8 @@ int main(int argc, char *argv[])
             argv[0] = cl_or_icl;
             memcpy(&argv[1], argv_temp, argc * sizeof(char*));
             argc++;
-            if (DEBUG_LEVEL > 1) {
-                print_argv("response_argv", argv, argc, 0);
-            }
+            printf("cl ");
+            print_argv("response_argv", argv, argc, 1);
             free(response_file);
             i = 0;
         }
