@@ -457,7 +457,7 @@ int main(int argc, char *argv[])
         response_file = read_file(&(argv[argc-1][1]));
         if (response_file) {
             if (DEBUG_LEVEL > 1) {
-                dprintf("Response file contents:\n%s\n", response_file);
+                printf("Response file contents:\n%s\n", response_file);
             }
             char ** argv_temp = split_commandline(response_file, &argc);
             char *cl_or_icl = argv[i];
