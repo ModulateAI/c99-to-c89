@@ -450,9 +450,7 @@ int main(int argc, char *argv[])
     } else if (i < argc && !strncmp(argv[i], "icl", 3) && (argv[i][3] == '.' || argv[i][3] == '\0'))
         msvc = 1; /* for command line compatibility */
 
-    /* are we using a response file? If so reform argv and argc from it. We print the new command-line always
-       as this is one of the most difficult aspects of dealing with CMake on Windows; you are basically forced
-       to use procmon to see the flags passed to the compiler and linker. */
+    /* Are we using a response file? If so reform argv and argc from it. */
     if (argv[argc-1][0] == '@') {
         response_file = read_file(&(argv[argc-1][1]));
         if (response_file) {
@@ -465,9 +463,6 @@ int main(int argc, char *argv[])
             argv[0] = cl_or_icl;
             memcpy(&argv[1], argv_temp, argc * sizeof(char*));
             argc++;
-            printf("cl ");
-            print_argv("response_argv", argv, argc, 1);
-            free(response_file);
             i = 0;
         }
     }
@@ -665,7 +660,10 @@ int main(int argc, char *argv[])
     if (!keep)
         unlink(temp_file_1);
 
-    print_argv("cc_argv", cc_argv, cc_argc, 0);
+    /* When using a response file we print the new command-line always as this is one of the most
+       difficult aspects of dealing with CMake on Windows; you are basically forced to use procmon
+       to see the flags passed to the compiler and linker. */
+    print_argv("cc_argv", cc_argv, cc_argc, response_file ? 1 : 0);
     exit_code = exec_argv_out(cc_argv, NULL);
 
     if (!keep)
@@ -676,6 +674,8 @@ exit:
     free(cpp_argv);
     free(pass_argv);
     free(conv_tool);
+    if(response_file)
+        free(response_file);
 
     return exit_code ? 1 : 0;
 }
