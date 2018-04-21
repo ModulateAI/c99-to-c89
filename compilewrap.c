@@ -90,9 +90,18 @@ static int exec_argv_out(char **argv, int out_0_err_1, const char *out)
     BOOL inherit = FALSE;
 
     if (out) {
+        char temp[2048];
+        /* When debugging this code I wasted a lot of time on this due to file locking.
+           system del seems to be the most reliable way to work around that. Also the
+           error message below is less cryptic than the one from perror(). */
+        if(_access(out, 0) == 0) {
+            sprintf(temp, "del \"%s\"", out);
+            system(temp);
+        }
         SECURITY_ATTRIBUTES sa = { 0 };
         fp = fopen(out, "wb");
         if (!fp) {
+            printf("ERROR :: c99wrap failed to open out %s\n", out);
             perror(out);
             return 1;
         }
