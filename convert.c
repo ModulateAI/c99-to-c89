@@ -29,7 +29,6 @@ move C:\c99-to-c89-build\work_* C:\c99-to-c89-build\work
 pushd C:\c99-to-c89-build\work
 cl.exe -MD -GL -IC:\c99-to-c89-build\_build_env/Library/include -nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -IC:\c99-to-c89-build\work\clang\include -Foconvert.o -c C:\Users\builder\conda\aggregate\c99-to-c89\convert.c
 cl.exe -Fec99conv.exe convert.o -nologo -Z7 C:\c99-to-c89-build\work\clang\lib\c99-to-c89-libclang.lib
-cl.exe  -MD -GL -MD -GL -IC:\c99-to-c89-build\_build_env/Library/include  -nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -I/c/c99-to-c89-build/work/clang/include -Focompilewrap.o -c compilewrap.c
 cl.exe  -MD -GL -IC:\c99-to-c89-build\_build_env/Library/include -nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -IC:\c99-to-c89-build\work\clang\include -Focompilewrap.o -c C:\Users\builder\conda\aggregate\c99-to-c89\compilewrap.c
 cl.exe -Fec99wrap.exe compilewrap.o -nologo -Z7 C:\c99-to-c89-build\work\clang\lib\c99-to-c89-libclang.lib Shell32.lib
 popd
@@ -41,6 +40,40 @@ REM C:\c99-to-c89-build\work\c99conv.exe -ms C:\Users\builder\conda\aggregate\c9
 REM "C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe" C:\c99-to-c89-build\work\c99conv.exe
 C:\c99-to-c89-build\work\c99wrap.exe -keep cl /FoC:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\check-2.c.obj -c C:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\check-2.c
 "C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe" C:\c99-to-c89-build\work\c99wrap.exe
+*/
+
+/*
+To use creduce (from an MSYS2 shell) for when this fails (and as it stands it will fail) this might work:
+.. say you get an error when building some package or other containing:
+   cl /nologo -DDLL_EXPORT -DHAVE_CONFIG_H -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_DEPRECATE -Dlzma_EXPORTS -IC:\Users\builder\m64\conda-bld\xz_1524264268024\work\src\common -IC:\Users\builder\m64\conda-bld\xz_1524264268024\work\src\liblzma -IC:\Users\builder\m64\conda-bld\xz_1524264268024\work\src\liblzma\common -IC:\Users\builder\m64\conda-bld\xz_1524264268024\work\src\liblzma\lzma -IC:\Users\builder\m64\conda-bld\xz_1524264268024\work\src\liblzma\lz -IC:\Users\builder\m64\conda-bld\xz_1524264268024\work\src\liblzma\check -IC:\Users\builder\m64\conda-bld\xz_1524264268024\work\src\liblzma\rangecoder -IC:\Users\builder\m64\conda-bld\xz_1524264268024\work\src\liblzma\simple -IC:\Users\builder\m64\conda-bld\xz_1524264268024\work\src\liblzma\delta -IC:\Users\builder\m64\conda-bld\xz_1524264268024\work\src\liblzma\api -IC:\Users\builder\m64\conda-bld\xz_1524264268024\work /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1 /FoCMakeFiles\lzma.dir\src\liblzma\lzma\lzma_encoder_optimum_normal.c.obj /FdCMakeFiles\lzma.dir\ -c C:\Users\builder\m64\conda-bld\xz_1524264268024\work\src\liblzma\lzma\lzma_encoder_optimum_normal.c
+   C:\Users\builder\m64\conda-bld\xz_1524264268024\work\src\liblzma\lzma\lzma_encoder_optimum_normal.c(714) : error C2143: syntax error : missing ';' before ')'
+1. Launch an MSYS2 shell and ensure you have creduce installed:
+   pacman -S mingw-w64-x86_64-creduce
+2. In your cmd.exe shell, activate your _build_env, go to your work dir (or some subfolder of it) and ensure that the error reproduces when run from this cmd.exe shell.
+3. Figure out the MSYS2 version of %CD%: C:\msys64\usr\bin\cygpath -u "%CD%":
+   /c/Users/builder/m64/conda-bld/xz_1524264268024/work
+4. Figure out the MSYS2 version of %PATH%: C:/msys64/usr/bin/cygpath -pu "%PATH%"
+   /c/Program Files (x86)/Microsoft Visual Studio 9.0/VC/BIN/amd64:/c/WINDOWS/Microsoft.NET/Framework64/v3.5:/c/WINDOWS/Microsoft.NET/Framework64/v3.5/Microsoft .NET Framework 3.5 (Pre-Release Version):/c/WINDOWS/Microsoft.NET/Framework64/v2.0.50727:/c/Program Files (x86)/Microsoft Visual Studio 9.0/VC/VCPackages:/c/Program Files (x86)/Microsoft Visual Studio 9.0/Common7/IDE:/c/Program Files (x86)/Microsoft Visual Studio 9.0/Common7/Tools:/c/Program Files (x86)/Microsoft Visual Studio 9.0/Common7/Tools/bin:/c/Program Files/Microsoft SDKs/Windows/v6.0A/bin/x64:/c/Program Files/Microsoft SDKs/Windows/v6.0A/bin/win64/x64:/c/Program Files/Microsoft SDKs/Windows/v6.0A/bin:/c/Users/builder/m64/conda-bld/xz_1524264268024/_build_env:/c/Users/builder/m64/conda-bld/xz_1524264268024/_build_env/Library/mingw-w64/bin:/c/Users/builder/m64/conda-bld/xz_1524264268024/_build_env/Library/usr/bin:/c/Users/builder/m64/conda-bld/xz_1524264268024/_build_env/Library/bin:/c/Users/builder/m64/conda-bld/xz_1524264268024/_build_env/Scripts:/c/Users/builder/m64/conda-bld/xz_1524264268024/_build_env/bin:/c/Users/builder/m64:/c/Users/builder/m64/Library/mingw-w64/bin:/c/Users/builder/m64/Library/usr/bin:/c/Users/builder/m64/Library/bin:/c/Users/builder/m64/Scripts:/c/Users/builder/m64/bin:/c/WINDOWS/system32:/c/WINDOWS:/c/WINDOWS/System32/Wbem:/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/c/Program Files (x86)/Windows Kits/8.1/Windows Performance Toolkit/:/c/Program Files (x86)/PuTTY/:/c/Program Files/MiKTeX 2.9/miktex/bin/x64/:/c/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/:/c/Program Files/dotnet/:/c/Users/builder/AppData/Local/Microsoft/WindowsApps
+5. In the MSYS2 shell go to the MSYS2 version of %CD% and augment PATH with the MSYS2 version of %PATH%:
+   pushd /c/Users/builder/m64/conda-bld/xz_1524264268024/work
+   export PATH="${PATH}:/c/Program Files (x86)/Microsoft Visual Studio 9.0/VC/BIN/amd64:/c/WINDOWS/Microsoft.NET/Framework64/v3.5:/c/WINDOWS/Microsoft.NET/Framework64/v3.5/Microsoft .NET Framework 3.5 (Pre-Release Version):/c/WINDOWS/Microsoft.NET/Framework64/v2.0.50727:/c/Program Files (x86)/Microsoft Visual Studio 9.0/VC/VCPackages:/c/Program Files (x86)/Microsoft Visual Studio 9.0/Common7/IDE:/c/Program Files (x86)/Microsoft Visual Studio 9.0/Common7/Tools:/c/Program Files (x86)/Microsoft Visual Studio 9.0/Common7/Tools/bin:/c/Program Files/Microsoft SDKs/Windows/v6.0A/bin/x64:/c/Program Files/Microsoft SDKs/Windows/v6.0A/bin/win64/x64:/c/Program Files/Microsoft SDKs/Windows/v6.0A/bin:/c/Users/builder/m64/conda-bld/xz_1524264268024/_build_env:/c/Users/builder/m64/conda-bld/xz_1524264268024/_build_env/Library/mingw-w64/bin:/c/Users/builder/m64/conda-bld/xz_1524264268024/_build_env/Library/usr/bin:/c/Users/builder/m64/conda-bld/xz_1524264268024/_build_env/Library/bin:/c/Users/builder/m64/conda-bld/xz_1524264268024/_build_env/Scripts:/c/Users/builder/m64/conda-bld/xz_1524264268024/_build_env/bin:/c/Users/builder/m64:/c/Users/builder/m64/Library/mingw-w64/bin:/c/Users/builder/m64/Library/usr/bin:/c/Users/builder/m64/Library/bin:/c/Users/builder/m64/Scripts:/c/Users/builder/m64/bin:/c/WINDOWS/system32:/c/WINDOWS:/c/WINDOWS/System32/Wbem:/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/c/Program Files (x86)/Windows Kits/8.1/Windows Performance Toolkit/:/c/Program Files (x86)/PuTTY/:/c/Program Files/MiKTeX 2.9/miktex/bin/x64/:/c/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/:/c/Program Files/dotnet/:/c/Users/builder/AppData/Local/Microsoft/WindowsApps"
+6. Make a folder:
+   mkdir credux ; pushd credux
+7. Copy the offending original source file here:
+   cp $(cygpath -u 'C:\Users\builder\m64\conda-bld\xz_1524264268024\work\src\liblzma\lzma\lzma_encoder_optimum_normal.c') .
+8. Make a creduce test1.sh simplifying the command line some via a bash variable, fixing Windows PATHS, removing -Zi or /Zi, fixin backslashes and turning flags that MSYS2 will convert to folders to ones it will not: (/BLAH => -BLAH)
+       echo '#!/usr/bin/env bash' > test1.sh
+       echo "ROOT_DIR=/c/Users/builder/m64/conda-bld/xz_1524256450688" >> test1.sh
+       echo "/c/c99-to-c89-build/work/c99wrap cl -nologo -DDLL_EXPORT -DHAVE_CONFIG_H -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_DEPRECATE -Dlzma_EXPORTS -I\${ROOT_DIR}/work/src/common \\" >> test1.sh
+       echo "           -I\${ROOT_DIR}/work/src/liblzma -I\${ROOT_DIR}/work/src/liblzma/common -I\${ROOT_DIR}/work/src/liblzma/lzma -I\${ROOT_DIR}/work/src/liblzma/lz \\" >> test1.sh
+       echo "           -I\${ROOT_DIR}/work/src/liblzma/check -I\${ROOT_DIR}/work/src/liblzma/rangecoder -I\${ROOT_DIR}/work/src/liblzma/simple -I\${ROOT_DIR}/work/src/liblzma/delta \\" >> test1.sh
+       echo "           -I\${ROOT_DIR}/work/src/liblzma/api -I\${ROOT_DIR}/work -DWIN32 -D_WINDOWS -W3 -MDd -Ob0 -Od -RTC1 -FdCMakeFiles/lzma.dir/ -c lzma_encoder_optimum_normal.c \\" >> test1.sh
+       echo "           -I\"/c/Program Files (x86)/Microsoft Visual Studio 9.0/VC/ATLMFC/INCLUDE\" -I\"/c/Program Files (x86)/Microsoft Visual Studio 9.0/VC/INCLUDE\" -I\"/c/Program Files/Microsoft SDKs/Windows/v6.0A/include\" \\" >> test1.sh
+       echo " 2>&1 | grep 'error C2143'" >> test1.sh
+9. In the above, I had to add the MSYS2 converted value of each INCLUDE entry by hand to the last line. Not sure why this is not getting picked up by cl.exe
+10. Test that the error code from running this script is 0.
+10. Kick it off and hope for the best:
+   /mingw64/bin/creduce test1.sh lzma_encoder_optimum_normal.c
 */
 
 #include <assert.h>
@@ -2712,7 +2745,7 @@ static void cleanup(void)
     free(enums);
 }
 
-int convert(const char *infile, const char *outfile, int ms_compat)
+int convert(const char *infile, const char *outfile, int ms_compat, const char *target)
 {
     CXIndex index;
     unsigned n_tokens;
@@ -2720,7 +2753,7 @@ int convert(const char *infile, const char *outfile, int ms_compat)
     CXSourceRange range;
     CXCursor cursor;
     CursorRecursion rec;
-    const char *ms_argv[] = { "-fms-extensions", "-target", "i386-pc-win32", NULL };
+    const char *ms_argv[] = { "-fms-extensions", "-target", target, NULL };
     const char **argv = NULL;
     int argc = 0;
     if (ms_compat) {
@@ -2775,18 +2808,23 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     dprintf("%s ", argv[0]);
     int arg = 1;
     int ms_compat = 0;
+    int target_64 = 0;
     while (arg < argc) {
         dprintf("%s ", argv[arg]);
-        if (!strcmp(argv[arg], "-ms")) {
+        if (!strcmp(argv[arg], "-ms"))
             ms_compat = 1;
-        } else {
+        else if (!strcmp(argv[arg], "-64"))
+            target_64 = 1;
+        else if (!strcmp(argv[arg], "-32"))
+            target_64 = 0;
+        else {
             break;
         }
         arg++;
     }
     if (argc < arg + 2) {
-        fprintf(stderr, "%s [-ms] <in> <out>\n", argv[0]);
+        fprintf(stderr, "%s [-ms] [-64|-32] <in> <out>\n", argv[0]);
         return 1;
     }
-    return convert(argv[arg], argv[arg + 1], ms_compat);
+    return convert(argv[arg], argv[arg + 1], ms_compat, target_64 ? "x86_64-pc-win32" : "i386-pc-win32");
 }

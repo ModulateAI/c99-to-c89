@@ -79,7 +79,7 @@ static char* create_cmdline(char **argv)
 
 /* On Windows, system() has very frugal length limits */
 #ifdef _WIN32
-static int exec_argv_out(char **argv, const char *out)
+static int exec_argv_out(char **argv, int out_0_err_1, const char *out)
 {
     STARTUPINFO si = { 0 };
     PROCESS_INFORMATION pi = { 0 };
@@ -101,8 +101,14 @@ static int exec_argv_out(char **argv, const char *out)
         CreatePipe(&pipe_read, &pipe_write, &sa, 0);
         si.cb = sizeof(si);
         si.dwFlags = STARTF_USESTDHANDLES;
-        si.hStdOutput = pipe_write;
-        si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+        if (out_0_err_1 == 0) {
+            si.hStdOutput = pipe_write;
+            si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+        }
+        else {
+            si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+            si.hStdError = pipe_write;
+        }
         inherit = TRUE;
     }
     if (CreateProcess(NULL, cmdline, NULL, NULL, inherit, 0, NULL, NULL, &si, &pi)) {
@@ -137,7 +143,7 @@ static int exec_argv_out(char **argv, const char *out)
     }
 }
 #else
-static int exec_argv_out(char **argv, const char *out)
+static int exec_argv_out(char **argv, int out_0_err_1, const char *out)
 {
     int fds[2];
     pid_t pid;
@@ -359,8 +365,6 @@ void print_argv(char * name, char ** argv, int argc, int force_print)
             printf("%s ", argv[i]);
         }
     }
-    if (i)
-        printf("\n");
 }
 
 size_t remove_string(char * input, char * to_remove, size_t * initialsz)
@@ -388,17 +392,18 @@ int main(int argc, char *argv[])
     int cpp_argc, cc_argc, pass_argc;
     int exit_code;
     int input_source = 0, input_obj = 0;
-    int msvc = 0, keep = 0, noconv = 0, flag_compile = 0;
+    int msvc = 0, icl = 0, keep = 0, noconv = 0, flag_compile = 0;
     char *ptr;
-    char temp_file_1[2048], temp_file_2[2048], fo_buffer[2048],
-         fi_buffer[2048];
-    char **cpp_argv, **cc_argv, **pass_argv;
-    char *conv_argv[5], *conv_tool;
+    char temp_file_1[2048], temp_file_2[2048], temp_file_3[2046],
+         fo_buffer[2048], fi_buffer[2048];
+    char **cpp_argv, **cc_argv, **pass_argv, **bitness_argv;
+    char *conv_argv[6], *conv_tool;
     const char *source_file = NULL;
     const char *outname = NULL;
     char *response_file = NULL;
     const char *envvar = NULL;
     char convert_options[20] = "";
+    char convert_bitness[4] = "-64";
 
     conv_tool = malloc(strlen(argv[0]) + strlen(CONVERTER) + 1);
     strcpy(conv_tool, argv[0]);
@@ -447,8 +452,10 @@ int main(int argc, char *argv[])
     if (i < argc && !strncmp(argv[i], "cl", 2) && (argv[i][2] == '.' || argv[i][2] == '\0')) {
         msvc = 1;
         strcpy(convert_options, "-ms");
-    } else if (i < argc && !strncmp(argv[i], "icl", 3) && (argv[i][3] == '.' || argv[i][3] == '\0'))
+    } else if (i < argc && !strncmp(argv[i], "icl", 3) && (argv[i][3] == '.' || argv[i][3] == '\0')) {
         msvc = 1; /* for command line compatibility */
+        icl = 1;
+    }
 
     /* Are we using a response file? If so reform argv and argc from it. */
     if (argv[argc-1][0] == '@') {
@@ -464,15 +471,36 @@ int main(int argc, char *argv[])
             memcpy(&argv[1], argv_temp, argc * sizeof(char*));
             argc++;
             i = 0;
+            /* Print the commandline as this is one of the most difficult aspects of dealing
+            with CMake on Windows. If it uses a response file (often it will) you are forced
+            to use something like procmon to see the flags passed. */
+            if (icl == 0)
+                printf("c99wrap cl ");
+            else
+                printf("c99wrap icl ");
+            print_argv("argv", argv + 1, argc - 1, 1);
+
         }
     }
 
     sprintf(temp_file_1, "preprocessed_%d.c", getpid());
     sprintf(temp_file_2, "converted_%d.c", getpid());
+    sprintf(temp_file_3, "bitness_%d.c", getpid());
 
-    cpp_argv  = malloc((argc + 2) * sizeof(*cpp_argv));
-    cc_argv   = malloc((argc + 3) * sizeof(*cc_argv));
-    pass_argv = malloc((argc + 3) * sizeof(*pass_argv));
+    cpp_argv     = malloc((argc + 2) * sizeof(*cpp_argv));
+    cc_argv      = malloc((argc + 3) * sizeof(*cc_argv));
+    pass_argv    = malloc((argc + 3) * sizeof(*pass_argv));
+    bitness_argv = malloc(2 * sizeof(*bitness_argv));
+    if (icl)
+        bitness_argv[0] = "icl";
+    else
+        bitness_argv[0] = "cl";
+    bitness_argv[1] = NULL;
+    exec_argv_out(bitness_argv, 1, temp_file_3);
+    char * bitness_out = read_file(temp_file_3);
+    if (bitness_out != NULL && strstr(bitness_out, "80x86"))
+        strcpy(convert_bitness, "-32");
+    unlink(temp_file_3);
 
     cpp_argc = cc_argc = pass_argc = 0;
 
@@ -603,13 +631,13 @@ int main(int argc, char *argv[])
     if (!flag_compile || !source_file || !outname) {
         print_argv("pass_argv", pass_argv, pass_argc, 0);
         /* Doesn't seem like we should be invoked, just call the parameters as such */
-        exit_code = exec_argv_out(pass_argv, NULL);
+        exit_code = exec_argv_out(pass_argv, 0, NULL);
 
         goto exit;
     }
 
     print_argv("cpp_argv", cpp_argv, cpp_argc, 0);
-    exit_code = exec_argv_out(cpp_argv, temp_file_1);
+    exit_code = exec_argv_out(cpp_argv, 0, temp_file_1);
     if (exit_code) {
         if (!keep)
             unlink(temp_file_1);
@@ -630,24 +658,30 @@ int main(int argc, char *argv[])
         exit_code = 1;
         goto exit;
     }
-    static char line_cont[] = { '\\', 0x0d, 0x0a, '\0' };
+    /* Two line ending styles to allow for other shells, nasty but this caused me a lot of trouble */
+    static char line_cont1[] = "\\\r\n";
+    static char line_cont2[] = "\\\n";
     /* We also remove #pragma once which is invalid in .c files and creates very noisy logs */
-    static char pragma_once[] = { "#pragma once\r\n" };
+    static char pragma_once1[] = "#pragma once\r\n";
+    static char pragma_once2[] = "#pragma once\n";
     size_t initialsz;
-    size_t finalsz1 = remove_string(preproc_out, line_cont, &initialsz);
-    size_t finalsz2 = remove_string(preproc_out, pragma_once, &finalsz1);
-    if (finalsz2 != initialsz) {
-        write_file(preproc_out, finalsz2 - 1, temp_file_1);
+    size_t finalsz1 = remove_string(preproc_out, line_cont1, &initialsz);
+    size_t finalsz2 = remove_string(preproc_out, line_cont2, &finalsz1);
+    size_t finalsz3 = remove_string(preproc_out, pragma_once1, &finalsz2);
+    size_t finalsz4 = remove_string(preproc_out, pragma_once2, &finalsz3);
+    if (finalsz4 != initialsz) {
+        write_file(preproc_out, finalsz4 - 1, temp_file_1);
     }
 
     conv_argv[0] = conv_tool;
     conv_argv[1] = convert_options;
-    conv_argv[2] = temp_file_1;
-    conv_argv[3] = temp_file_2;
-    conv_argv[4] = NULL;
+    conv_argv[2] = convert_bitness;
+    conv_argv[3] = temp_file_1;
+    conv_argv[4] = temp_file_2;
+    conv_argv[5] = NULL;
 
-    exit_code = exec_argv_out(conv_argv, NULL);
-    print_argv("conv_argv", conv_argv, 4, 0);
+    exit_code = exec_argv_out(conv_argv, 0, NULL);
+    print_argv("conv_argv", conv_argv, 5, 0);
     if (exit_code) {
         if (!keep) {
             unlink(temp_file_1);
@@ -660,11 +694,7 @@ int main(int argc, char *argv[])
     if (!keep)
         unlink(temp_file_1);
 
-    /* When using a response file we print the new command-line always as this is one of the most
-       difficult aspects of dealing with CMake on Windows; you are basically forced to use procmon
-       to see the flags passed to the compiler and linker. */
-    print_argv("cc_argv", cc_argv, cc_argc, response_file ? 1 : 0);
-    exit_code = exec_argv_out(cc_argv, NULL);
+    exit_code = exec_argv_out(cc_argv, 0, NULL);
 
     if (!keep)
         unlink(temp_file_2);
