@@ -7,7 +7,7 @@ build:
   skip: true  # [win and vc!=14]
 
 source:
-  - path: ..
+  - git_url: https://github.com/AnacondaRecipes/c99-to-c89
   # We need a libclang. No one builds them statically for Windows unfortunately (though the
   # libav binaries have been built this way). I rename the libclang.dll in these to avoid
   # conflicts with conda-forge's clangdev (which we cannot use at present due to compat).
@@ -60,18 +60,18 @@ test:
     - set C99_TO_C89_WRAP_DEBUG_LEVEL=2
     # Test fix for broken handling of empty cond-statement in loops when moving the decl out of the init-expression:
     # for (int i = 0 ; ; ++i) {} => int i = 0 ; ; for ( ; i++) {}
-    - c99wrap cl /Fo%TEMP%\lzma_encoder_optimal_normal.c.obj -c %CD%\tests\lzma_encoder_optimal_normal.c
+    - c99wrap cl /Folzma_encoder_optimal_normal.c.obj -c %CD%\tests\lzma_encoder_optimal_normal.c
     # Simple case I broke when attempting to fix cursor position management bug tested below:
-    - c99wrap cl /Fo%TEMP%\check-2.c.obj -c %CD%\tests\check-2.c
+    - c99wrap cl /Focheck-2.c.obj -c %CD%\tests\check-2.c
     # The cl pre-processor does not remove line continuations and the cl compiler cannot handle these:
-    - c99wrap cl /Fo%TEMP%\test-macro-line-continuation.o -c %CD%\tests\test-macro-line-continuation.c
-    - c99wrap cl /Fo%TEMP%\test-pragma-comment.o -c %CD%\tests\test-pragma-comment.c
+    - c99wrap cl /Fotest-macro-line-continuation.o -c %CD%\tests\test-macro-line-continuation.c
+    - c99wrap cl /Fotest-pragma-comment.o -c %CD%\tests\test-pragma-comment.c
     # Next problem, cursor position management bug. "else if" => "elseif" and all other spaces vanish
     # after insertion text to an earlier position on the same line, fixed by maintaining relative spacing.
     # .. this test must be the last one due it exiting in both cases (though we could probably make it a
     # c99wrap test instead so failure to compile would cause a natural exit).
-    - c99conv -ms %CD%\tests\stream_encoder.c.obj_preprocessed.c %TEMP%\stream_encoder.c.converted.c
-    - findstr elseif %TEMP%\stream_encoder.c.converted.c && (exit /b 1) || (exit /b 0)
+    - c99conv -ms %CD%\tests\stream_encoder.c.obj_preprocessed.c stream_encoder.c.converted.c
+    - findstr elseif stream_encoder.c.converted.c && (exit /b 1) || (exit /b 0)
 
 about:
   home: https://github.com/libav/c99-to-c89
