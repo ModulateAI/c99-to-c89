@@ -27,19 +27,22 @@ C:\Users\builder\m64\Scripts\activate.bat C:\c99-to-c89-build\_build_env
 rmdir C:\c99-to-c89-build\work
 move C:\c99-to-c89-build\work_* C:\c99-to-c89-build\work
 pushd C:\c99-to-c89-build\work
-cl.exe -MD -GL -IC:\c99-to-c89-build\_build_env/Library/include -nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -IC:\c99-to-c89-build\work\clang\include -Foconvert.o -c C:\Users\builder\conda\aggregate\c99-to-c89\convert.c
-cl.exe -Fec99conv.exe convert.o -nologo -Z7 C:\c99-to-c89-build\work\clang\lib\c99-to-c89-libclang.lib
-cl.exe  -MD -GL -IC:\c99-to-c89-build\_build_env/Library/include -nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -IC:\c99-to-c89-build\work\clang\include -Focompilewrap.o -c C:\Users\builder\conda\aggregate\c99-to-c89\compilewrap.c
-cl.exe -Fec99wrap.exe compilewrap.o -nologo -Z7 C:\c99-to-c89-build\work\clang\lib\c99-to-c89-libclang.lib Shell32.lib
-popd
+cl.exe -MD -GL -IC:\c99-to-c89-build\_build_env/Library/include -nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -IC:\c99-to-c89-build\work\clang\include -FoC:\c99-to-c89-build\work\convert.o -c C:\Users\builder\conda\aggregate\c99-to-c89\convert.c
+cl.exe -FeC:\c99-to-c89-build\work\c99conv.exe C:\c99-to-c89-build\work\convert.o -nologo -Z7 C:\c99-to-c89-build\work\clang\lib\c99-to-c89-libclang.lib
+cl.exe  -MD -GL -IC:\c99-to-c89-build\_build_env/Library/include -nologo -Z7 -D_CRT_SECURE_NO_WARNINGS=1 -Dpopen=_popen -Dunlink=_unlink -Dstrdup=_strdup -I. -IC:\c99-to-c89-build\work\clang\include -FoC:\c99-to-c89-build\work\compilewrap.o -c C:\Users\builder\conda\aggregate\c99-to-c89\compilewrap.c
+cl.exe -FeC:\c99-to-c89-build\work\c99wrap.exe C:\c99-to-c89-build\work\compilewrap.o -nologo -Z7 C:\c99-to-c89-build\work\clang\lib\c99-to-c89-libclang.lib Shell32.lib
 REM And to debug it (should work provided the test phase fails):
 copy /y C:\c99-to-c89-build\_test_env\Library\bin\c99-to-c89-libclang.dll C:\c99-to-c89-build\work
 REM .. if we did not get that far:
 copy /y C:\c99-to-c89-build\work\clang\bin\c99-to-c89-libclang.dll C:\c99-to-c89-build\work
 REM C:\c99-to-c89-build\work\c99conv.exe -ms C:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\stream_encoder.c.obj_preprocessed.c C:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\stream_encoder.c.converted.c
-REM "C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe" C:\c99-to-c89-build\work\c99conv.exe
+REM "C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe" /debugexe C:\c99-to-c89-build\work\c99conv.exe
 C:\c99-to-c89-build\work\c99wrap.exe -keep cl /FoC:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\check-2.c.obj -c C:\Users\builder\conda\aggregate\c99-to-c89\recipe\tests\check-2.c
-"C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe" C:\c99-to-c89-build\work\c99wrap.exe
+set C99_TO_C89_CONV_DEBUG_LEVEL=2
+set C99_TO_C89_WRAP_DEBUG_LEVEL=2
+set C99_TO_C89_WRAP_SAVE_TEMPS=1
+set C99_TO_C89_WRAP_NO_LINE_DIRECTIVES=1
+"C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe" /debugexe C:\c99-to-c89-build\work\c99conv.exe -ms -64 C:\Users\builder\AppData\Local\Temp\lzma_encoder_optimal_normal.c.obj_preprocessed.c C:\Users\builder\AppData\Local\Temp\lzma_encoder_optimal_normal.c.obj_converted.c
 */
 
 /*
@@ -1307,7 +1310,7 @@ static void get_comp_literal_type_info(StructArrayList *sal,
     }
 }
 
-static unsigned get_n_tokens(CXToken *tokens, unsigned n_tokens)
+static unsigned get_n_tokens(CXToken *tokens, unsigned n_tokens, enum CXCursorKind cursor_kind, enum CXCursorKind parent_kind)
 {
     /* clang will set n_tokens to the number including the start of the
      * next statement, regardless of whether that is part of the next
@@ -1316,11 +1319,35 @@ static unsigned get_n_tokens(CXToken *tokens, unsigned n_tokens)
      * cases (if it's the start of the next statement, e.g. "static void
      * function1(..) { .. } static void function2(..) { }", we want to
      * close context before the last token (which in the first case is
-     * ";", but in the second case is "static"). */
+     * ";", but in the second case is "static").
+     * However even in the ";" case there is a special case of two ";"
+     * where we do want to ignore one of them (though maybe only in a
+     * for loop decl, hence passing kind?) */
     int res;
+    int res2 = 1;
     if (n_tokens > 0) {
         CXString spelling = clang_getTokenSpelling(TU, tokens[n_tokens - 1]);
-        res = strcmp(clang_getCString(spelling), ";");
+        const char *sp = clang_getCString(spelling);
+        res = strcmp(sp, ";");
+
+        if (n_tokens > 1) {
+            CXString spelling2 = clang_getTokenSpelling(TU, tokens[n_tokens - 2]);
+            const char *sp2 = clang_getCString(spelling2);
+            res2 = strcmp(sp2, ";");
+            clang_disposeString(spelling2);
+
+            if (!res && !res2)
+            {
+                dprintf("c99conv.exe :: WARNING :: Encountered a double \";\" ..");
+                if (cursor_kind == CXCursor_DeclStmt && parent_kind == CXCursor_ForStmt) {
+                    dprintf(" ignoring second \";\" as cursor_kind == CXCursor_DeclStmt && parent_kind == CXCursor_ForStmt\n");
+                    res = -1;
+                } else {
+                    dprintf(" *not* ignoring second \";\" as cursor_kind != CXCursor_DeclStmt || parent_kind != CXCursor_ForStmt\n");
+                }
+            }
+        }
+
         clang_disposeString(spelling);
     } else {
         res = 1;
@@ -1389,7 +1416,7 @@ static enum CXChildVisitResult callback(CXCursor cursor, CXCursor parent,
     rec.parent = (CursorRecursion *) client_data;
     rec.parent->child_cntr++;
     rec.tokens = tokens;
-    rec.n_tokens = get_n_tokens(tokens, n_tokens);
+    rec.n_tokens = get_n_tokens(tokens, n_tokens, cursor.kind, parent.kind);
     if (cursor.kind == CXCursor_FunctionDecl)
         rec.is_function = 1;
     if (parent.kind == CXCursor_CompoundStmt)
@@ -2753,12 +2780,12 @@ int convert(const char *infile, const char *outfile, int ms_compat, const char *
     CXSourceRange range;
     CXCursor cursor;
     CursorRecursion rec;
-    const char *ms_argv[] = { "-fms-extensions", "-target", target, NULL };
+    const char *ms_argv[] = { "-fms-extensions", "-target", target, "-Wno-microsoft-anon-tag", NULL };
     const char **argv = NULL;
     int argc = 0;
     if (ms_compat) {
         argv = ms_argv;
-        argc = 3;
+        argc = (sizeof(ms_argv) / sizeof(ms_argv[0])) - 1;
     }
 
     out    = fopen(outfile, "w");
