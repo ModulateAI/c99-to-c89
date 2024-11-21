@@ -2,7 +2,8 @@ EXT =
 
 all: c99conv$(EXT) c99wrap$(EXT)
 
-OBJS = convert.o
+SRC_MAIN_ROOT=src/main
+SRC_TEST_ROOT=src/test
 
 CC=/opt/local/bin/clang-mp-3.2
 LD=$(CC)
@@ -11,28 +12,28 @@ LDFLAGS=-L/opt/local/libexec/llvm-3.2/lib -g
 LIBS=-lclang
 
 clean:
-	rm -f c99conv$(EXT) c99wrap$(EXT) $(OBJS) compilewrap.o
-	rm -f unit.c.c unit2.c.c
+	rm -f c99conv$(EXT) c99wrap$(EXT) $(SRC_MAIN_ROOT)/convert.o $(SRC_MAIN_ROOT)/compilewrap.o
+	rm -f $(SRC_TEST_ROOT)/unit.c.c $(SRC_TEST_ROOT)/unit2.c.c
 
 test1: c99conv$(EXT)
-	$(CC) -E unit.c -o unit.prev.c
-	./c99conv unit.prev.c unit.post.c
-	diff -u unit.{prev,post}.c || :
+	$(CC) -E $(SRC_TEST_ROOT)/unit.c -o $(SRC_TEST_ROOT)/unit.prev.c
+	./c99conv $(SRC_TEST_ROOT)/unit.prev.c $(SRC_TEST_ROOT)/unit.post.c
+	diff -u $(SRC_TEST_ROOT)/unit.{prev,post}.c || :
 
 test2: c99conv$(EXT)
-	$(CC) -E unit2.c -o unit2.prev.c
-	./c99conv unit2.prev.c unit2.post.c
-	diff -u unit2.{prev,post}.c || :
+	$(CC) -E $(SRC_TEST_ROOT)/unit2.c -o $(SRC_TEST_ROOT)/unit2.prev.c
+	./c99conv $(SRC_TEST_ROOT)/unit2.prev.c $(SRC_TEST_ROOT)/unit2.post.c
+	diff -u $(SRC_TEST_ROOT)/unit2.{prev,post}.c || :
 
 test3: c99conv$(EXT)
-	$(CC) $(CFLAGS) -E -o convert.prev.c convert.c
-	./c99conv convert.prev.c convert.post.c
-	diff -u convert.{prev,post}.c
+	$(CC) $(CFLAGS) -E -o $(SRC_MAIN_ROOT)/convert.prev.c $(SRC_MAIN_ROOT)/convert.c
+	./c99conv $(SRC_MAIN_ROOT)/convert.prev.c $(SRC_MAIN_ROOT)/convert.post.c
+	diff -u $(SRC_MAIN_ROOT)/convert.{prev,post}.c || :
 
-c99conv$(EXT): $(OBJS)
+c99conv$(EXT): $(SRC_MAIN_ROOT)/convert.o
 	$(CC) -o $@ $< $(LDFLAGS) $(LIBS)
 
-c99wrap$(EXT): compilewrap.o
+c99wrap$(EXT): $(SRC_MAIN_ROOT)/compilewrap.o
 	$(CC) -o $@ $< $(LDFLAGS)
 
 %.o: %.c
