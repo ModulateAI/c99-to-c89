@@ -600,6 +600,9 @@ int main(int argc, char *argv[])
     bitness_argv[1] = NULL;
     exec_argv_out(bitness_argv, 1, temp_file_3);
     char * bitness_out = read_file(temp_file_3);
+    if (DEBUG_LEVEL > 1) {
+        printf("Bitness file contents:\n%s\n", bitness_out);
+    }
     if (bitness_out != NULL && strstr(bitness_out, "80x86"))
         strcpy(convert_bitness, "-32");
     unlink(temp_file_3);
