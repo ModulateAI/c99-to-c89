@@ -80,7 +80,7 @@ static char* create_cmdline(char **argv)
 
 /* On Windows, system() has very frugal length limits */
 #ifdef _WIN32
-static int exec_argv_out(char **argv, int out_0_err_1, const char *out)
+static int exec_argv_out(char *pass_name, char **argv, int out_0_err_1, const char *out)
 {
     STARTUPINFO si = { 0 };
     PROCESS_INFORMATION pi = { 0 };
@@ -91,7 +91,7 @@ static int exec_argv_out(char **argv, int out_0_err_1, const char *out)
     BOOL inherit = FALSE;
 
     if (DEBUG_LEVEL > 0) {
-        (void)fprintf(stderr, "Invoking sub-process: %s\n", cmdline);
+        (void)fprintf(stderr, "== Invoking sub-process for '%s' pass\n%s\n\n", pass_name, cmdline);
     }
 
     if (out) {
@@ -106,7 +106,7 @@ static int exec_argv_out(char **argv, int out_0_err_1, const char *out)
         SECURITY_ATTRIBUTES sa = { 0 };
         fp = fopen(out, "wb");
         if (!fp) {
-            printf("ERROR :: c99wrap failed to open out %s\n", out);
+            (void)fprintf(stderr, "ERROR :: c99wrap failed to open out %s\n", out);
             perror(out);
             return 1;
         }
@@ -146,7 +146,7 @@ static int exec_argv_out(char **argv, int out_0_err_1, const char *out)
         CloseHandle(pi.hThread);
 
         if (DEBUG_LEVEL > 0) {
-            (void)fprintf(stderr, "Sub-process exit code: %lu\n", exit_code);
+            (void)fprintf(stderr, "== Sub-process exit code: %lu\n", exit_code);
         }
 
         return exit_code;
@@ -161,7 +161,7 @@ static int exec_argv_out(char **argv, int out_0_err_1, const char *out)
     }
 }
 #else
-static int exec_argv_out(char **argv, int out_0_err_1, const char *out)
+static int exec_argv_out(char *pass_name, char **argv, int out_0_err_1, const char *out)
 {
     int fds[2];
     pid_t pid;
@@ -171,14 +171,14 @@ static int exec_argv_out(char **argv, int out_0_err_1, const char *out)
         char *cmdline = create_cmdline(argv);
 
         if (DEBUG_LEVEL > 0) {
-            (void)fprintf(stderr, "Invoking sub-process: %s\n", cmdline);
+            (void)fprintf(stderr, "== Invoking sub-process for '%s' pass\n%s\n\n", pass_name, cmdline);
         }
 
         ret = system(cmdline);
         free(cmdline);
 
         if (DEBUG_LEVEL > 0) {
-            (void)fprintf(stderr, "Sub-process exit code: %d\n", ret);
+            (void)fprintf(stderr, "\n== Sub-process exit code: %d\n", ret);
         }
 
         return ret;
@@ -196,7 +196,7 @@ static int exec_argv_out(char **argv, int out_0_err_1, const char *out)
 
         if (DEBUG_LEVEL > 0) {
             char *cmdline = create_cmdline(argv);
-            (void)fprintf(stderr, "Invoking sub-process: %s\n", cmdline);
+            (void)fprintf(stderr, "== Invoking sub-process for '%s' pass\n%s\n\n", pass_name, cmdline);
         }
 
         if (execvp(argv[0], argv)) {
@@ -217,7 +217,7 @@ static int exec_argv_out(char **argv, int out_0_err_1, const char *out)
     waitpid(pid, &ret, 0);
 
     if (DEBUG_LEVEL > 0) {
-        printf("Sub-process exit code: %d\n", ret);
+        printf("\n== Sub-process exit code: %d\n", ret);
     }
 
     return WEXITSTATUS(ret);
@@ -453,22 +453,6 @@ void write_file(const char * buf, size_t len, const char * filename)
     fclose(f);
 }
 
-
-void print_argv(char * name, char ** argv, int argc, int force_print)
-{
-    int i, j;
-
-    if (DEBUG_LEVEL == 0 && force_print == 0) {
-        return;
-    }
-    (void)name;
-    for (i = 0; i < argc; i++) {
-        if (argv[i]) {
-            printf("%s ", argv[i]);
-        }
-    }
-}
-
 size_t remove_string(char * input, char * to_remove, size_t * initialsz)
 {
     char * old_cursor = input;
@@ -564,7 +548,7 @@ int main(int argc, char *argv[])
         response_file = read_file(&(argv[argc-1][1]));
         if (response_file) {
             if (DEBUG_LEVEL > 1) {
-                printf("Response file contents:\n%s\n", response_file);
+                fprintf(stderr, "Response file contents:\n%s\n", response_file);
             }
             char ** argv_temp = split_commandline(response_file, &argc);
             char *cl_or_icl = argv[i];
@@ -573,15 +557,6 @@ int main(int argc, char *argv[])
             memcpy(&argv[1], argv_temp, argc * sizeof(char*));
             argc++;
             i = 0;
-            /* Print the commandline as this is one of the most difficult aspects of dealing
-            with CMake on Windows. If it uses a response file (often it will) you are forced
-            to use something like procmon to see the flags passed. */
-            if (icl == 0)
-                printf("c99wrap cl ");
-            else
-                printf("c99wrap icl ");
-            print_argv("argv", argv + 1, argc - 1, 1);
-
         }
     }
 
@@ -598,10 +573,10 @@ int main(int argc, char *argv[])
     else
         bitness_argv[0] = "cl";
     bitness_argv[1] = NULL;
-    exec_argv_out(bitness_argv, 1, temp_file_3);
+    exec_argv_out("bitness", bitness_argv, 1, temp_file_3);
     char * bitness_out = read_file(temp_file_3);
     if (DEBUG_LEVEL > 1) {
-        printf("Bitness file contents:\n%s\n", bitness_out);
+        fprintf(stderr, "Bitness file contents:\n%s\n", bitness_out);
     }
     if (bitness_out != NULL && strstr(bitness_out, "80x86"))
         strcpy(convert_bitness, "-32");
@@ -734,15 +709,13 @@ int main(int argc, char *argv[])
     pass_argv[pass_argc++] = NULL;
 
     if (!flag_compile || !source_file || !outname) {
-        print_argv("pass_argv", pass_argv, pass_argc, 0);
         /* Doesn't seem like we should be invoked, just call the parameters as such */
-        exit_code = exec_argv_out(pass_argv, 0, NULL);
+        exit_code = exec_argv_out("passthrough", pass_argv, 0, NULL);
 
         goto exit;
     }
 
-    print_argv("cpp_argv", cpp_argv, cpp_argc, 0);
-    exit_code = exec_argv_out(cpp_argv, 0, temp_file_1);
+    exit_code = exec_argv_out("preprocess", cpp_argv, 0, temp_file_1);
     if (exit_code) {
         if (!keep)
             unlink(temp_file_1);
@@ -785,8 +758,7 @@ int main(int argc, char *argv[])
     conv_argv[4] = temp_file_2;
     conv_argv[5] = NULL;
 
-    print_argv("conv_argv", conv_argv, 5, 0);
-    exit_code = exec_argv_out(conv_argv, 0, NULL);
+    exit_code = exec_argv_out("convert", conv_argv, 0, NULL);
     if (exit_code) {
         if (!keep) {
             unlink(temp_file_1);
@@ -799,7 +771,7 @@ int main(int argc, char *argv[])
     if (!keep)
         unlink(temp_file_1);
 
-    exit_code = exec_argv_out(cc_argv, 0, NULL);
+    exit_code = exec_argv_out("compile", cc_argv, 0, NULL);
 
     if (!keep)
         unlink(temp_file_2);
