@@ -785,8 +785,8 @@ int main(int argc, char *argv[])
     conv_argv[4] = temp_file_2;
     conv_argv[5] = NULL;
 
-    exit_code = exec_argv_out(conv_argv, 0, NULL);
     print_argv("conv_argv", conv_argv, 5, 0);
+    exit_code = exec_argv_out(conv_argv, 0, NULL);
     if (exit_code) {
         if (!keep) {
             unlink(temp_file_1);
