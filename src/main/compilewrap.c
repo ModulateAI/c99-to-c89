@@ -2,6 +2,7 @@
  * C99-to-MSVC-compatible-C89 syntax converter
  * Copyright (c) 2012 Martin Storsjo <martin@martin.st>
  * Copyright (c) 2018 Ray Donnelly, Anaconda Inc. <mingw.android@gmail.com>
+ * Copyright (c) 2024 Modulate, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -328,27 +329,90 @@ char **split_commandline(char *cmdline, int *argc)
     return NULL;
 }
 
+/* Converts a UTF-16 LE buffer to a UTF-8 string. */
+char *utf16le_to_utf8(const unsigned char *utf16_buf, size_t utf16_len) {
+    size_t utf8_len = 0;
+    char *utf8_buf = NULL;
+    size_t i;
 
-/* Allocates and returns a buffer containing the contents of filename with a NULL terminator. */
-char * read_file(const char * filename) {
+    // First, calculate the required length for the UTF-8 buffer.
+    for (i = 0; i < utf16_len; i += 2) {
+        const unsigned char low = utf16_buf[i];
+        const unsigned char high = utf16_buf[i + 1];
+        const unsigned int codepoint = (high << 8) | low;
+
+        if (codepoint < 0x80) {
+            utf8_len += 1; // 1-byte UTF-8
+        } else if (codepoint < 0x800) {
+            utf8_len += 2; // 2-byte UTF-8
+        } else {
+            utf8_len += 3; // 3-byte UTF-8
+        }
+    }
+
+    // Allocate the UTF-8 buffer.
+    utf8_buf = malloc(utf8_len + 1); // +1 for NULL terminator
+    if (!utf8_buf) {
+        return NULL;
+    }
+
+    // Convert UTF-16 LE to UTF-8.
+    char *out = utf8_buf;
+    for (i = 0; i < utf16_len; i += 2) {
+        const unsigned char low = utf16_buf[i];
+        const unsigned char high = utf16_buf[i + 1];
+        const unsigned int codepoint = (high << 8) | low;
+
+        if (codepoint < 0x80) {
+            *out++ = codepoint;
+        } else if (codepoint < 0x800) {
+            *out++ = 0xC0 | (codepoint >> 6);
+            *out++ = 0x80 | (codepoint & 0x3F);
+        } else {
+            *out++ = 0xE0 | (codepoint >> 12);
+            *out++ = 0x80 | ((codepoint >> 6) & 0x3F);
+            *out++ = 0x80 | (codepoint & 0x3F);
+        }
+    }
+
+    *out = '\0'; // NULL terminator
+    return utf8_buf;
+}
+
+/* Allocates and returns a buffer containing the contents of filename as a UTF-8 string. */
+char * read_file(const char *filename) {
     char * buf = NULL;
     long len;
     FILE * f = fopen (filename, "rb");
 
     if (f) {
+        // Get the file length.
         fseek (f, 0, SEEK_END);
         len = ftell (f);
         fseek (f, 0, SEEK_SET);
-        buf = malloc (len + 1);
-        if (buf != NULL) {
-            fread (buf, 1, len, f);
-            buf[len] = '\0';
+
+        if (len > 0) {
+            buf = malloc(len + 1);
+            if (buf != NULL) {
+                fread (buf, 1, len, f);
+                buf[len] = '\0'; // Ensure NULL terminator
+
+                // Check for UTF-16 LE BOM.
+                if (len >= 2 && (unsigned char)buf[0] == 0xFF && (unsigned char)buf[1] == 0xFE) {
+                    // Convert UTF-16 LE to UTF-8
+                    char * utf8_buf = utf16le_to_utf8 ((unsigned char *)buf + 2, len - 2);
+
+                    // Return the converted version of the data.
+                    free (buf);
+                    buf = utf8_buf;
+                }
+            }
         }
-        fclose (f);
+        fclose(f);
     }
+
     return buf;
 }
-
 
 void write_file(const char * buf, size_t len, const char * filename)
 {
