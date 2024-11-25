@@ -90,6 +90,10 @@ static int exec_argv_out(char **argv, int out_0_err_1, const char *out)
     HANDLE pipe_read, pipe_write = NULL;
     BOOL inherit = FALSE;
 
+    if (DEBUG_LEVEL > 0) {
+        (void)fprintf(stderr, "Invoking sub-process: %s\n", cmdline);
+    }
+
     if (out) {
         char temp[2048];
         /* When debugging this code I wasted a lot of time on this due to file locking.
@@ -141,6 +145,10 @@ static int exec_argv_out(char **argv, int out_0_err_1, const char *out)
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
 
+        if (DEBUG_LEVEL > 0) {
+            (void)fprintf(stderr, "Sub-process exit code: %lu\n", exit_code);
+        }
+
         return exit_code;
     } else {
         if (out) {
@@ -161,8 +169,18 @@ static int exec_argv_out(char **argv, int out_0_err_1, const char *out)
     FILE *fp;
     if (!out) {
         char *cmdline = create_cmdline(argv);
+
+        if (DEBUG_LEVEL > 0) {
+            (void)fprintf(stderr, "Invoking sub-process: %s\n", cmdline);
+        }
+
         ret = system(cmdline);
         free(cmdline);
+
+        if (DEBUG_LEVEL > 0) {
+            (void)fprintf(stderr, "Sub-process exit code: %d\n", ret);
+        }
+
         return ret;
     }
     fp = fopen(out, "wb");
@@ -175,6 +193,12 @@ static int exec_argv_out(char **argv, int out_0_err_1, const char *out)
     if (!(pid = fork())) {
         close(fds[0]);
         dup2(fds[1], STDOUT_FILENO);
+
+        if (DEBUG_LEVEL > 0) {
+            char *cmdline = create_cmdline(argv);
+            (void)fprintf(stderr, "Invoking sub-process: %s\n", cmdline);
+        }
+
         if (execvp(argv[0], argv)) {
             perror("execvp");
             exit(1);
@@ -191,6 +215,11 @@ static int exec_argv_out(char **argv, int out_0_err_1, const char *out)
     close(fds[0]);
     fclose(fp);
     waitpid(pid, &ret, 0);
+
+    if (DEBUG_LEVEL > 0) {
+        printf("Sub-process exit code: %d\n", ret);
+    }
+
     return WEXITSTATUS(ret);
 }
 #endif
