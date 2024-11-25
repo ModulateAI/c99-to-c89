@@ -547,7 +547,7 @@ int main(int argc, char *argv[])
 
     if (keep && noconv) {
         fprintf(stderr, "Using -keep with -noconv doesn't make any sense!\n "
-                        "You cannot keep intermediate files that doesn't exist.\n");
+                        "You cannot keep intermediate files that don't exist.\n");
         return 1;
     }
 
