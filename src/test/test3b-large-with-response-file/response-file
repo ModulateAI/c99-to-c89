@@ -1,0 +1,1 @@
+/nologo -DDLL_EXPORT -DHAVE_CONFIG_H -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_DEPRECATE -Dlzma_EXPORTS -Isrc/test/test3-large/input /DWIN32 /D_WINDOWS /Fosrc/test/test3b-large-with-response-file/output/check.c.obj -c src/test/test3-large/input/check.c
